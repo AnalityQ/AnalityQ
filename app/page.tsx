@@ -18,7 +18,11 @@ export default function Home() {
       setAnalysis(true);
     }, 1800);
   }
-
+  function handleNewAnalysis() {
+    setMatch("");
+    setAnalysis(false);
+    setLoading(false);
+  }
   return (
     <main className="min-h-screen overflow-hidden bg-gradient-to-br from-[#031022] via-[#063C86] to-[#020817] text-white">
       <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-[#031022]/70 backdrop-blur-xl">
@@ -147,6 +151,12 @@ export default function Home() {
                   gwarancji wyniku.
                 </p>
               </div>
+                            <button
+                onClick={handleNewAnalysis}
+                className="mt-6 w-full rounded-2xl border border-[#F6C343]/30 bg-[#F6C343]/10 px-6 py-4 font-bold text-[#F6C343] transition duration-300 hover:bg-[#F6C343] hover:text-[#031022]"
+              >
+                Nowa analiza
+              </button>
             </div>
           )}
 
