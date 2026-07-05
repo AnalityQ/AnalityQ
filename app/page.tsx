@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export default function Home() {
   const [match, setMatch] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(false);
+
+  const reportRef = useRef<HTMLDivElement | null>(null);
 
   function handleAnalyze() {
     if (!match.trim()) return;
@@ -16,13 +18,27 @@ export default function Home() {
     setTimeout(() => {
       setLoading(false);
       setAnalysis(true);
+
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
     }, 1800);
   }
+
   function handleNewAnalysis() {
     setMatch("");
     setAnalysis(false);
     setLoading(false);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
+
   return (
     <main className="min-h-screen overflow-hidden bg-gradient-to-br from-[#031022] via-[#063C86] to-[#020817] text-white">
       <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-[#031022]/70 backdrop-blur-xl">
@@ -100,117 +116,127 @@ export default function Home() {
           {loading && (
             <div className="relative z-20 mx-auto mt-8 max-w-2xl rounded-3xl border border-cyan-200/20 bg-white/10 p-6 shadow-2xl shadow-cyan-400/20 backdrop-blur-xl">
               <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-[#F6C343]" />
-              <p className="font-bold text-[#F6C343]">AI analizuje wydarzenie...</p>
+              <p className="font-bold text-[#F6C343]">
+                AI analizuje wydarzenie...
+              </p>
               <p className="mt-2 text-sm text-white/60">
                 Sprawdzam formę, statystyki i możliwe scenariusze.
               </p>
             </div>
           )}
 
-{analysis && !loading && (
-  <div className="relative z-20 mx-auto mt-8 max-w-4xl rounded-3xl border border-[#F6C343]/30 bg-white/10 p-6 text-left shadow-2xl shadow-[#F6C343]/15 backdrop-blur-xl">
-    <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="text-sm font-semibold text-[#F6C343]">
-          Raport AnalityQ
-        </p>
-        <h2 className="mt-1 text-2xl font-black text-white md:text-3xl">
-          {match}
-        </h2>
-        <p className="mt-2 text-sm text-white/55">
-          Analiza demo oparta na przykładowym modelu oceny wydarzenia.
-        </p>
-      </div>
+          {analysis && !loading && (
+            <div
+              ref={reportRef}
+              className="relative z-20 mx-auto mt-8 max-w-4xl rounded-3xl border border-[#F6C343]/30 bg-white/10 p-6 text-left shadow-2xl shadow-[#F6C343]/15 backdrop-blur-xl"
+            >
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#F6C343]">
+                    Raport AnalityQ
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-white md:text-3xl">
+                    {match}
+                  </h2>
+                  <p className="mt-2 text-sm text-white/55">
+                    Analiza demo oparta na przykładowym modelu oceny wydarzenia.
+                  </p>
+                </div>
 
-      <div className="rounded-3xl border border-[#F6C343]/30 bg-[#F6C343]/10 px-6 py-4 text-center shadow-lg shadow-[#F6C343]/20">
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
-          AI Score
-        </p>
-        <p className="mt-1 text-4xl font-black text-[#F6C343]">84%</p>
-      </div>
-    </div>
+                <div className="rounded-3xl border border-[#F6C343]/30 bg-[#F6C343]/10 px-6 py-4 text-center shadow-lg shadow-[#F6C343]/20">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
+                    AI Score
+                  </p>
+                  <p className="mt-1 text-4xl font-black text-[#F6C343]">
+                    84%
+                  </p>
+                </div>
+              </div>
 
-    <div className="mt-6">
-      <div className="mb-2 flex items-center justify-between text-sm">
-        <span className="text-white/60">Pewność modelu</span>
-        <span className="font-bold text-[#F6C343]">84 / 100</span>
-      </div>
-      <div className="h-3 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full w-[84%] rounded-full bg-[#F6C343] shadow-[0_0_18px_rgba(246,195,67,0.65)]" />
-      </div>
-    </div>
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="text-white/60">Pewność modelu</span>
+                  <span className="font-bold text-[#F6C343]">84 / 100</span>
+                </div>
 
-    <div className="mt-6 grid gap-4 md:grid-cols-3">
-      <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
-        <p className="text-sm text-white/50">Gospodarze</p>
-        <p className="mt-1 text-3xl font-black text-white">52%</p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-[52%] rounded-full bg-[#F6C343]" />
-        </div>
-      </div>
+                <div className="h-3 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full w-[84%] rounded-full bg-[#F6C343] shadow-[0_0_18px_rgba(246,195,67,0.65)]" />
+                </div>
+              </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
-        <p className="text-sm text-white/50">Remis</p>
-        <p className="mt-1 text-3xl font-black text-white">26%</p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-[26%] rounded-full bg-cyan-300" />
-        </div>
-      </div>
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
+                  <p className="text-sm text-white/50">Gospodarze</p>
+                  <p className="mt-1 text-3xl font-black text-white">52%</p>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full w-[52%] rounded-full bg-[#F6C343]" />
+                  </div>
+                </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
-        <p className="text-sm text-white/50">Goście</p>
-        <p className="mt-1 text-3xl font-black text-white">22%</p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-[22%] rounded-full bg-blue-300" />
-        </div>
-      </div>
-    </div>
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
+                  <p className="text-sm text-white/50">Remis</p>
+                  <p className="mt-1 text-3xl font-black text-white">26%</p>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full w-[26%] rounded-full bg-cyan-300" />
+                  </div>
+                </div>
 
-    <div className="mt-6 grid gap-4 md:grid-cols-2">
-      <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
-        <h3 className="font-bold text-[#F6C343]">Kluczowe czynniki</h3>
-        <div className="mt-4 space-y-3 text-sm text-white/70">
-          <p>✓ Forma drużyn z ostatnich spotkań</p>
-          <p>✓ Przewaga własnego boiska</p>
-          <p>✓ Potencjał ofensywny i defensywny</p>
-          <p>✓ Historia bezpośrednich spotkań</p>
-        </div>
-      </div>
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
+                  <p className="text-sm text-white/50">Goście</p>
+                  <p className="mt-1 text-3xl font-black text-white">22%</p>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full w-[22%] rounded-full bg-blue-300" />
+                  </div>
+                </div>
+              </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
-        <h3 className="font-bold text-[#F6C343]">Ryzyko analizy</h3>
-        <div className="mt-4 space-y-3 text-sm text-white/70">
-          <p>⚠️ Możliwe rotacje w składzie</p>
-          <p>⚠️ Brak pełnych danych live w wersji demo</p>
-          <p>⚠️ Sport ma wysoką losowość</p>
-          <p>⚠️ To nie jest gwarancja wyniku</p>
-        </div>
-      </div>
-    </div>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
+                  <h3 className="font-bold text-[#F6C343]">
+                    Kluczowe czynniki
+                  </h3>
+                  <div className="mt-4 space-y-3 text-sm text-white/70">
+                    <p>✓ Forma drużyn z ostatnich spotkań</p>
+                    <p>✓ Przewaga własnego boiska</p>
+                    <p>✓ Potencjał ofensywny i defensywny</p>
+                    <p>✓ Historia bezpośrednich spotkań</p>
+                  </div>
+                </div>
 
-    <div className="mt-6 rounded-2xl border border-[#F6C343]/20 bg-[#F6C343]/10 p-5">
-      <h3 className="font-bold text-[#F6C343]">Wniosek AI</h3>
-      <p className="mt-2 leading-7 text-white/75">
-        Model wskazuje lekką przewagę gospodarzy, głównie przez profil
-        spotkania, przewagę własnego boiska i stabilniejszą formę. Najbardziej
-        prawdopodobny scenariusz to wyrównany mecz z niewielką przewagą jednej
-        strony.
-      </p>
-    </div>
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/75 p-5">
+                  <h3 className="font-bold text-[#F6C343]">Ryzyko analizy</h3>
+                  <div className="mt-4 space-y-3 text-sm text-white/70">
+                    <p>⚠️ Możliwe rotacje w składzie</p>
+                    <p>⚠️ Brak pełnych danych live w wersji demo</p>
+                    <p>⚠️ Sport ma wysoką losowość</p>
+                    <p>⚠️ To nie jest gwarancja wyniku</p>
+                  </div>
+                </div>
+              </div>
 
-    <p className="mt-4 text-xs leading-5 text-white/40">
-      AnalityQ tworzy analizę informacyjną. Nie gwarantuje wyniku i nie stanowi
-      porady bukmacherskiej ani finansowej.
-    </p>
+              <div className="mt-6 rounded-2xl border border-[#F6C343]/20 bg-[#F6C343]/10 p-5">
+                <h3 className="font-bold text-[#F6C343]">Wniosek AI</h3>
+                <p className="mt-2 leading-7 text-white/75">
+                  Model wskazuje lekką przewagę gospodarzy, głównie przez profil
+                  spotkania, przewagę własnego boiska i stabilniejszą formę.
+                  Najbardziej prawdopodobny scenariusz to wyrównany mecz z
+                  niewielką przewagą jednej strony.
+                </p>
+              </div>
 
-    <button
-      onClick={handleNewAnalysis}
-      className="mt-6 w-full rounded-2xl border border-[#F6C343]/30 bg-[#F6C343]/10 px-6 py-4 font-bold text-[#F6C343] transition duration-300 hover:bg-[#F6C343] hover:text-[#031022]"
-    >
-      Nowa analiza
-    </button>
-  </div>
-)}
+              <p className="mt-4 text-xs leading-5 text-white/40">
+                AnalityQ tworzy analizę informacyjną. Nie gwarantuje wyniku i
+                nie stanowi porady bukmacherskiej ani finansowej.
+              </p>
+
+              <button
+                onClick={handleNewAnalysis}
+                className="mt-6 w-full rounded-2xl border border-[#F6C343]/30 bg-[#F6C343]/10 px-6 py-4 font-bold text-[#F6C343] transition duration-300 hover:bg-[#F6C343] hover:text-[#031022]"
+              >
+                Nowa analiza
+              </button>
+            </div>
+          )}
 
           {!analysis && !loading && (
             <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-3">
