@@ -1,79 +1,97 @@
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-gradient-to-br from-[#071A3D] via-[#0E3A8A] to-[#020817] text-white">
-      <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-[#071A3D]/70 backdrop-blur-xl">
-  <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-    <div className="text-xl font-black">
-      Anality<span className="text-[#F6C343]">Q</span>
-    </div>
+    <main className="min-h-screen overflow-hidden bg-gradient-to-br from-[#031022] via-[#063C86] to-[#020817] text-white">
+      <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-[#031022]/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div className="text-xl font-black tracking-tight">
+            Anality<span className="text-[#F6C343]">Q</span>
+          </div>
 
-    <nav className="hidden items-center gap-8 text-sm text-white/70 md:flex">
-      <a className="hover:text-[#F6C343]" href="#">Funkcje</a>
-      <a className="hover:text-[#F6C343]" href="#">Cennik</a>
-      <a className="hover:text-[#F6C343]" href="#">O nas</a>
-    </nav>
+          <nav className="hidden items-center gap-8 text-sm font-medium text-white/70 md:flex">
+            <a className="transition hover:text-[#F6C343]" href="#">
+              Funkcje
+            </a>
+            <a className="transition hover:text-[#F6C343]" href="#">
+              Cennik
+            </a>
+            <a className="transition hover:text-[#F6C343]" href="#">
+              O nas
+            </a>
+          </nav>
 
-    <button className="rounded-full bg-[#F6C343] px-5 py-2 text-sm font-bold text-[#071A3D] hover:bg-[#ffd76a]">
-      Rozpocznij
-    </button>
-  </div>
-</header>
-      <section className="relative flex min-h-screen items-center justify-center px-6">
-        <div className="absolute left-1/2 top-20 h-72 w-72 -translate-x-1/2 rounded-full bg-[#F6C343]/20 blur-3xl" />
-        <div className="absolute bottom-10 right-10 h-56 w-56 rounded-full bg-blue-500/20 blur-3xl" />
+          <button className="rounded-full bg-[#F6C343] px-5 py-2 text-sm font-bold text-[#031022] shadow-lg shadow-[#F6C343]/40 transition duration-300 hover:scale-105 hover:bg-[#ffdc6b]">
+            Rozpocznij
+          </button>
+        </div>
+      </header>
 
-        <div className="relative z-10 w-full max-w-5xl text-center">
-          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-[#F6C343]/40 bg-[#F6C343]/10 px-5 py-2 text-sm font-semibold text-[#F6C343] shadow-lg shadow-[#F6C343]/20 backdrop-blur">
-  <span className="h-2 w-2 rounded-full bg-[#F6C343] shadow-[0_0_12px_#F6C343]" />
-  AI Sports Intelligence Platform
-</div>
-<h1 className="mb-6 text-4xl md:text-6xl font-extrabold text-white leading-tight">
-  Inteligentna analiza
-  <span className="text-[#F6C343]"> meczów sportowych</span>
-</h1>
-<img
-  src="/logo.png"
-  alt="Logo AnalityQ"
-  className="mx-auto mb-12 w-96 drop-shadow-[0_0_45px_rgba(246,195,67,0.55)] transition duration-300 hover:scale-105"
-/>
+      <section className="relative flex min-h-screen items-center justify-center px-6 pt-24">
+        <div className="absolute left-1/2 top-20 h-[540px] w-[540px] -translate-x-1/2 rounded-full bg-cyan-300/20 blur-[115px]" />
+        <div className="absolute left-1/2 top-32 h-[430px] w-[430px] -translate-x-1/2 rounded-full bg-[#F6C343]/20 blur-[105px]" />
+        <div className="absolute bottom-10 left-10 h-80 w-80 rounded-full bg-blue-300/20 blur-[100px]" />
+        <div className="absolute right-10 top-40 h-80 w-80 rounded-full bg-[#8EEBFF]/20 blur-[110px]" />
 
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/70 md:text-xl">
-            Podejmuj lepsze decyzje dzięki analizie AI.
-Sprawdź formę drużyn, statystyki, kursy i przewidywania w kilka sekund.
-          </p>
+        <div className="relative z-10 w-full max-w-6xl text-center">
+          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-[#F6C343]/50 bg-[#F6C343]/10 px-5 py-2 text-sm font-semibold text-[#F6C343] shadow-lg shadow-[#F6C343]/20 backdrop-blur">
+            <span className="h-2 w-2 rounded-full bg-[#F6C343] shadow-[0_0_14px_#F6C343]" />
+            AI Sports Intelligence Platform
+          </div>
 
-          <div className="mx-auto mt-10 flex max-w-2xl flex-col gap-4 rounded-3xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur md:flex-row">
+          <h1 className="mx-auto mb-0 max-w-5xl text-[30px] font-black leading-tight tracking-tight md:text-[52px]">
+            Inteligentna analiza{" "}
+            <span className="text-[#F6C343] drop-shadow-[0_0_20px_rgba(246,195,67,0.35)]">
+              meczów sportowych
+            </span>
+          </h1>
+
+          <div className="relative mx-auto -mb-24 mt-1 w-fit">
+            <div className="absolute inset-0 rounded-full bg-[#8EEBFF]/25 blur-3xl" />
+            <img
+              src="/logo.png"
+              alt="Logo AnalityQ"
+              className="relative mx-auto w-[440px] max-w-[92vw] drop-shadow-[0_0_75px_rgba(142,235,255,0.58)] transition duration-500 hover:scale-105 md:w-[530px]"
+            />
+          </div>
+
+          <div className="relative z-20 mx-auto mt-0 flex max-w-2xl flex-col gap-4 rounded-3xl border border-cyan-200/20 bg-white/10 p-4 shadow-2xl shadow-cyan-400/20 backdrop-blur-xl transition duration-300 hover:border-[#F6C343]/40 hover:shadow-[#F6C343]/20 md:flex-row">
             <input
-              className="flex-1 rounded-2xl border border-white/10 bg-[#06142F] px-5 py-4 text-white outline-none placeholder:text-white/40"
+              className="flex-1 rounded-2xl border border-white/10 bg-[#06142F]/90 px-5 py-4 text-white outline-none transition placeholder:text-white/40 focus:border-[#F6C343]/70 focus:ring-2 focus:ring-[#F6C343]/25"
               placeholder="Wpisz mecz... np. Liverpool vs Arsenal"
             />
 
-            <button className="rounded-2xl bg-[#F6C343] px-8 py-4 font-bold text-[#071A3D] transition hover:scale-105 hover:bg-[#ffd76a]">
+            <button className="rounded-2xl bg-[#F6C343] px-8 py-4 font-bold text-[#031022] shadow-lg shadow-[#F6C343]/40 transition duration-300 hover:scale-105 hover:bg-[#ffdc6b] active:scale-95">
               Analizuj
             </button>
           </div>
 
-          <div className="mx-auto mt-12 grid max-w-4xl gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur">
-              <p className="text-3xl">📊</p>
+          <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-3">
+            <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
+              <p className="text-3xl transition duration-300 group-hover:scale-125">
+                📊
+              </p>
               <h3 className="mt-4 font-bold text-[#F6C343]">Statystyki</h3>
-              <p className="mt-2 text-sm text-white/60">
-                Forma, historia spotkań i kluczowe dane przed wydarzeniem.
+              <p className="mt-2 text-sm leading-6 text-white/65">
+                Forma, historia spotkań, xG, kontuzje i kluczowe dane przed
+                wydarzeniem.
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur">
-              <p className="text-3xl">🧠</p>
+            <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
+              <p className="text-3xl transition duration-300 group-hover:scale-125">
+                🧠
+              </p>
               <h3 className="mt-4 font-bold text-[#F6C343]">Analiza AI</h3>
-              <p className="mt-2 text-sm text-white/60">
+              <p className="mt-2 text-sm leading-6 text-white/65">
                 AI porządkuje informacje i pokazuje najważniejsze wnioski.
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur">
-              <p className="text-3xl">⚡</p>
+            <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
+              <p className="text-3xl transition duration-300 group-hover:scale-125">
+                ⚡
+              </p>
               <h3 className="mt-4 font-bold text-[#F6C343]">Szybkość</h3>
-              <p className="mt-2 text-sm text-white/60">
+              <p className="mt-2 text-sm leading-6 text-white/65">
                 Jedno pole, jeden klik i gotowa analiza w kilka sekund.
               </p>
             </div>
