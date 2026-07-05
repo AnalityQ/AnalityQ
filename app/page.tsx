@@ -1,4 +1,24 @@
+"use client";
+
+import { useState } from "react";
+
 export default function Home() {
+  const [match, setMatch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(false);
+
+  function handleAnalyze() {
+    if (!match.trim()) return;
+
+    setAnalysis(false);
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      setAnalysis(true);
+    }, 1800);
+  }
+
   return (
     <main className="min-h-screen overflow-hidden bg-gradient-to-br from-[#031022] via-[#063C86] to-[#020817] text-white">
       <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-[#031022]/70 backdrop-blur-xl">
@@ -55,47 +75,115 @@ export default function Home() {
 
           <div className="relative z-20 mx-auto mt-0 flex max-w-2xl flex-col gap-4 rounded-3xl border border-cyan-200/20 bg-white/10 p-4 shadow-2xl shadow-cyan-400/20 backdrop-blur-xl transition duration-300 hover:border-[#F6C343]/40 hover:shadow-[#F6C343]/20 md:flex-row">
             <input
+              value={match}
+              onChange={(e) => setMatch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAnalyze();
+              }}
               className="flex-1 rounded-2xl border border-white/10 bg-[#06142F]/90 px-5 py-4 text-white outline-none transition placeholder:text-white/40 focus:border-[#F6C343]/70 focus:ring-2 focus:ring-[#F6C343]/25"
               placeholder="Wpisz mecz... np. Liverpool vs Arsenal"
             />
 
-            <button className="rounded-2xl bg-[#F6C343] px-8 py-4 font-bold text-[#031022] shadow-lg shadow-[#F6C343]/40 transition duration-300 hover:scale-105 hover:bg-[#ffdc6b] active:scale-95">
-              Analizuj
+            <button
+              onClick={handleAnalyze}
+              disabled={loading}
+              className="rounded-2xl bg-[#F6C343] px-8 py-4 font-bold text-[#031022] shadow-lg shadow-[#F6C343]/40 transition duration-300 hover:scale-105 hover:bg-[#ffdc6b] active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loading ? "Analizuję..." : "Analizuj"}
             </button>
           </div>
 
-          <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-3">
-            <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
-              <p className="text-3xl transition duration-300 group-hover:scale-125">
-                📊
-              </p>
-              <h3 className="mt-4 font-bold text-[#F6C343]">Statystyki</h3>
-              <p className="mt-2 text-sm leading-6 text-white/65">
-                Forma, historia spotkań, xG, kontuzje i kluczowe dane przed
-                wydarzeniem.
+          {loading && (
+            <div className="relative z-20 mx-auto mt-8 max-w-2xl rounded-3xl border border-cyan-200/20 bg-white/10 p-6 shadow-2xl shadow-cyan-400/20 backdrop-blur-xl">
+              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-[#F6C343]" />
+              <p className="font-bold text-[#F6C343]">AI analizuje wydarzenie...</p>
+              <p className="mt-2 text-sm text-white/60">
+                Sprawdzam formę, statystyki i możliwe scenariusze.
               </p>
             </div>
+          )}
 
-            <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
-              <p className="text-3xl transition duration-300 group-hover:scale-125">
-                🧠
-              </p>
-              <h3 className="mt-4 font-bold text-[#F6C343]">Analiza AI</h3>
-              <p className="mt-2 text-sm leading-6 text-white/65">
-                AI porządkuje informacje i pokazuje najważniejsze wnioski.
-              </p>
-            </div>
+          {analysis && !loading && (
+            <div className="relative z-20 mx-auto mt-8 max-w-3xl rounded-3xl border border-[#F6C343]/30 bg-white/10 p-6 text-left shadow-2xl shadow-[#F6C343]/15 backdrop-blur-xl">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#F6C343]">
+                    Analiza demo
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-white">
+                    {match}
+                  </h2>
+                </div>
 
-            <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
-              <p className="text-3xl transition duration-300 group-hover:scale-125">
-                ⚡
-              </p>
-              <h3 className="mt-4 font-bold text-[#F6C343]">Szybkość</h3>
-              <p className="mt-2 text-sm leading-6 text-white/65">
-                Jedno pole, jeden klik i gotowa analiza w kilka sekund.
-              </p>
+                <div className="rounded-2xl border border-[#F6C343]/30 bg-[#F6C343]/10 px-5 py-3 text-center">
+                  <p className="text-xs text-white/60">AI Score</p>
+                  <p className="text-3xl font-black text-[#F6C343]">84%</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/70 p-4">
+                  <p className="text-sm text-white/50">Gospodarze</p>
+                  <p className="mt-1 text-2xl font-black text-white">52%</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/70 p-4">
+                  <p className="text-sm text-white/50">Remis</p>
+                  <p className="mt-1 text-2xl font-black text-white">26%</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-[#06142F]/70 p-4">
+                  <p className="text-sm text-white/50">Goście</p>
+                  <p className="mt-1 text-2xl font-black text-white">22%</p>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-white/10 bg-[#06142F]/70 p-5">
+                <h3 className="font-bold text-[#F6C343]">Wniosek AI</h3>
+                <p className="mt-2 leading-7 text-white/70">
+                  Na podstawie obecnej formy, przewagi własnego boiska i
+                  ogólnego profilu spotkania, model wskazuje lekką przewagę
+                  gospodarzy. Analiza ma charakter informacyjny i nie stanowi
+                  gwarancji wyniku.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
+
+          {!analysis && !loading && (
+            <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-3">
+              <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
+                <p className="text-3xl transition duration-300 group-hover:scale-125">
+                  📊
+                </p>
+                <h3 className="mt-4 font-bold text-[#F6C343]">Statystyki</h3>
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  Forma, historia spotkań, xG, kontuzje i kluczowe dane przed
+                  wydarzeniem.
+                </p>
+              </div>
+
+              <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
+                <p className="text-3xl transition duration-300 group-hover:scale-125">
+                  🧠
+                </p>
+                <h3 className="mt-4 font-bold text-[#F6C343]">Analiza AI</h3>
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  AI porządkuje informacje i pokazuje najważniejsze wnioski.
+                </p>
+              </div>
+
+              <div className="group rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-[#F6C343]/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-[#F6C343]/15">
+                <p className="text-3xl transition duration-300 group-hover:scale-125">
+                  ⚡
+                </p>
+                <h3 className="mt-4 font-bold text-[#F6C343]">Szybkość</h3>
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  Jedno pole, jeden klik i gotowa analiza w kilka sekund.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </main>
