@@ -23,7 +23,7 @@ export default function PremiumPage() {
       <section className="section-shell !pt-0">
         <SectionHeader
           eyebrow="Porównanie"
-          title="Free vs Premium vs Pro"
+          title="Darmowy vs Premium vs Pro"
           description="Czytelny zakres dostępu do raportów, metryk i narzędzi pracy."
         />
         <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04]">
@@ -31,7 +31,7 @@ export default function PremiumPage() {
             <thead>
               <tr className="border-b border-white/10 text-slate-300">
                 <th className="p-4 font-bold">Funkcja</th>
-                <th className="p-4 font-bold">Free</th>
+                <th className="p-4 font-bold">Darmowy</th>
                 <th className="p-4 font-bold text-amber-100">Premium</th>
                 <th className="p-4 font-bold text-cyan-100">Pro</th>
               </tr>

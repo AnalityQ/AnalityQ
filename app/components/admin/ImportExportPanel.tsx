@@ -2,65 +2,76 @@
 
 import { useRef, useState } from "react";
 import {
-  exportMatchesToJson,
-  importMatchesFromJson,
-  resetAllMatches,
-} from "@/lib/storage";
+  exportAnalysesFromDatabase,
+  getStudioDatabaseErrorMessage,
+  importAnalysesToDatabase,
+} from "@/lib/database";
 
-export function ImportExportPanel({ onChange }: { onChange: () => void }) {
+export function ImportExportPanel({ onChange }: { onChange: () => void | Promise<void> }) {
   const [json, setJson] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  function exportJson() {
-    const content = exportMatchesToJson();
-    const blob = new Blob([content], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `analityq-analizy-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setMessage("Export JSON gotowy.");
-  }
+  async function exportJson() {
+    setBusy(true);
+    setMessage("");
 
-  function importJson(source: string) {
     try {
-      const count = importMatchesFromJson(source);
-      setMessage(`Zaimportowano ${count} analiz.`);
-      setJson("");
-      onChange();
+      const data = await exportAnalysesFromDatabase();
+      const content = JSON.stringify(data, null, 2);
+      const blob = new Blob([content], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `analityq-kopia-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setMessage("Kopia JSON została przygotowana z bazy online.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Nie udało się zaimportować JSON.");
+      setMessage(getStudioDatabaseErrorMessage(error));
+    } finally {
+      setBusy(false);
     }
   }
 
-  function reset() {
-    if (!window.confirm("Usunąć wszystkie analizy z localStorage?")) return;
-    resetAllMatches();
-    setMessage("Wyczyszczono lokalną bazę analiz.");
-    onChange();
+  async function importJson(source: string) {
+    if (!source.trim()) {
+      setMessage("Wklej JSON albo wybierz plik kopii zapasowej.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const imported = await importAnalysesToDatabase(source);
+      setMessage(`Zaimportowano ${imported.length} analiz do bazy online.`);
+      setJson("");
+      await onChange();
+    } catch (error) {
+      setMessage(getStudioDatabaseErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <section className="mt-10 rounded-3xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur-xl">
+    <section className="mt-10 rounded-3xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div>
-          <p className="eyebrow">Import / Export</p>
-          <h2 className="mt-2 text-2xl font-black text-white">Lokalna baza JSON</h2>
+          <p className="eyebrow">Kopia zapasowa</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Kopia zapasowa online</h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Export pobiera aktualne analizy. Import akceptuje tablicę JSON zgodną ze strukturą AnalityQ.
+            Eksportuj kopię bieżących analiz z Supabase albo odtwórz dane z wcześniej zapisanej kopii JSON.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="button" className="btn-secondary justify-center" onClick={exportJson}>
-            Export JSON
+          <button type="button" className="btn-secondary justify-center" onClick={exportJson} disabled={busy}>
+            Eksportuj kopię JSON
           </button>
-          <button type="button" className="btn-secondary justify-center" onClick={() => fileRef.current?.click()}>
-            Wybierz plik
-          </button>
-          <button type="button" className="btn-secondary justify-center" onClick={reset}>
-            Reset
+          <button type="button" className="btn-secondary justify-center" onClick={() => fileRef.current?.click()} disabled={busy}>
+            Wybierz plik JSON
           </button>
         </div>
       </div>
@@ -73,7 +84,7 @@ export function ImportExportPanel({ onChange }: { onChange: () => void }) {
         onChange={async (event) => {
           const file = event.target.files?.[0];
           if (!file) return;
-          importJson(await file.text());
+          await importJson(await file.text());
           event.currentTarget.value = "";
         }}
       />
@@ -83,10 +94,10 @@ export function ImportExportPanel({ onChange }: { onChange: () => void }) {
           className="admin-textarea min-h-28"
           value={json}
           onChange={(event) => setJson(event.target.value)}
-          placeholder="Wklej JSON z analizami..."
+          placeholder="Wklej kopię JSON z analizami..."
         />
-        <button type="button" className="btn-primary justify-center" onClick={() => importJson(json)}>
-          Import JSON
+        <button type="button" className="btn-primary justify-center" onClick={() => void importJson(json)} disabled={busy}>
+          {busy ? "Przetwarzanie..." : "Importuj kopię JSON"}
         </button>
       </div>
 

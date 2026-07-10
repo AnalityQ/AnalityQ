@@ -1,9 +1,11 @@
 "use client";
 
+import { emptyMarketNumbers, safeNumber, statNumberKeys } from "./calculations";
 import type {
   AccessStatus,
   DataLevel,
   MatchAnalysisRecord,
+  NumericValue,
   PublicationStatus,
   RiskLevel,
   TeamManualStats,
@@ -13,6 +15,18 @@ export const matchesStorageKey = "analityq.matches.v1";
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function createId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `analysis-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeNumber(value: unknown): NumericValue {
+  return safeNumber(value);
 }
 
 export function slugify(value: string) {
@@ -27,16 +41,16 @@ export function slugify(value: string) {
 
 export function emptyStats(): TeamManualStats {
   return {
-    goalsForLast5: 0,
-    goalsAgainstLast5: 0,
-    cornersForLast5: 0,
-    cornersAgainstLast5: 0,
-    cardsForLast5: 0,
-    cardsAgainstLast5: 0,
-    shotsForLast5: 0,
-    shotsAgainstLast5: 0,
-    xgForLast5: 0,
-    xgAgainstLast5: 0,
+    goalsForLast5: null,
+    goalsAgainstLast5: null,
+    cornersForLast5: null,
+    cornersAgainstLast5: null,
+    cardsForLast5: null,
+    cardsAgainstLast5: null,
+    shotsForLast5: null,
+    shotsAgainstLast5: null,
+    xgForLast5: null,
+    xgAgainstLast5: null,
     formLast5: "",
   };
 }
@@ -45,7 +59,7 @@ export function createEmptyAnalysis(slotNumber: number): MatchAnalysisRecord {
   const now = new Date().toISOString();
 
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     slotNumber,
     slug: `slot-${slotNumber}-${Date.now()}`,
     createdAt: now,
@@ -67,23 +81,11 @@ export function createEmptyAnalysis(slotNumber: number): MatchAnalysisRecord {
       home: emptyStats(),
       away: emptyStats(),
     },
-    odds: {
-      homeWin: 0,
-      draw: 0,
-      awayWin: 0,
-      over25: 0,
-      under25: 0,
-      bttsYes: 0,
-      bttsNo: 0,
-      cornersOver85: 0,
-      cornersUnder85: 0,
-      cardsOver35: 0,
-      cardsUnder35: 0,
-    },
+    odds: emptyMarketNumbers(),
     userProbabilities: {},
     settings: {
-      riskLevel: "medium" as RiskLevel,
-      confidence: 0,
+      riskLevel: "auto" as RiskLevel,
+      confidence: null,
       riskNote: "",
     },
     notes: {
@@ -127,30 +129,70 @@ export function buildAnalysisSlug(analysis: MatchAnalysisRecord, existing: Match
   return slug;
 }
 
+function normalizeStats(stats: Partial<TeamManualStats> | undefined) {
+  const normalized = { ...emptyStats(), ...stats };
+
+  statNumberKeys.forEach((key) => {
+    normalized[key] = normalizeNumber(normalized[key]);
+  });
+  normalized.formLast5 = String(normalized.formLast5 || "");
+
+  return normalized;
+}
+
 export function normalizeAnalysis(analysis: MatchAnalysisRecord, existing: MatchAnalysisRecord[]) {
+  const slotNumber = Math.min(20, Math.max(1, Number(analysis.slotNumber) || 1));
+  const defaults = createEmptyAnalysis(slotNumber);
   const now = new Date().toISOString();
+  const odds = { ...defaults.odds, ...analysis.odds };
+  const userProbabilities = { ...analysis.userProbabilities };
+
+  Object.keys(odds).forEach((key) => {
+    const marketKey = key as keyof typeof odds;
+    odds[marketKey] = normalizeNumber(odds[marketKey]);
+  });
+
+  Object.keys(userProbabilities).forEach((key) => {
+    const marketKey = key as keyof typeof userProbabilities;
+    userProbabilities[marketKey] = normalizeNumber(userProbabilities[marketKey]);
+  });
+
   const normalized: MatchAnalysisRecord = {
-    ...createEmptyAnalysis(analysis.slotNumber || 1),
+    ...defaults,
     ...analysis,
-    basic: { ...createEmptyAnalysis(analysis.slotNumber || 1).basic, ...analysis.basic },
+    id: analysis.id || defaults.id,
+    createdAt: analysis.createdAt || defaults.createdAt,
+    updatedAt: now,
+    slotNumber,
+    basic: { ...defaults.basic, ...analysis.basic },
     manualStats: {
-      home: { ...emptyStats(), ...analysis.manualStats?.home },
-      away: { ...emptyStats(), ...analysis.manualStats?.away },
+      home: normalizeStats(analysis.manualStats?.home),
+      away: normalizeStats(analysis.manualStats?.away),
     },
-    odds: { ...createEmptyAnalysis(analysis.slotNumber || 1).odds, ...analysis.odds },
-    userProbabilities: { ...analysis.userProbabilities },
-    settings: { ...createEmptyAnalysis(analysis.slotNumber || 1).settings, ...analysis.settings },
-    notes: { ...createEmptyAnalysis(analysis.slotNumber || 1).notes, ...analysis.notes },
+    odds,
+    userProbabilities,
+    settings: {
+      ...defaults.settings,
+      ...analysis.settings,
+      riskLevel: (analysis.settings?.riskLevel || "auto") as RiskLevel,
+      confidence: normalizeNumber(analysis.settings?.confidence),
+    },
+    notes: { ...defaults.notes, ...analysis.notes },
     premiumSections: {
-      ...createEmptyAnalysis(analysis.slotNumber || 1).premiumSections,
+      ...defaults.premiumSections,
       ...analysis.premiumSections,
     },
     sourceMode: "manual",
-    updatedAt: now,
   };
 
-  normalized.slotNumber = Math.min(20, Math.max(1, Number(normalized.slotNumber) || 1));
-  normalized.slug = buildAnalysisSlug(normalized, existing);
+  normalized.basic.status = (normalized.basic.status || "free") as AccessStatus;
+  normalized.basic.dataLevel = (normalized.basic.dataLevel || "basic") as DataLevel;
+  normalized.publicationStatus = (normalized.publicationStatus || "draft") as PublicationStatus;
+
+  const incomingSlug = typeof analysis.slug === "string" ? analysis.slug.trim() : "";
+  const hasSlugConflict = existing.some((item) => item.id !== normalized.id && item.slug === incomingSlug);
+  const isPlaceholderSlug = /^slot-\d+/i.test(incomingSlug);
+  normalized.slug = incomingSlug && !hasSlugConflict && !isPlaceholderSlug ? incomingSlug : buildAnalysisSlug(normalized, existing);
   return normalized;
 }
 

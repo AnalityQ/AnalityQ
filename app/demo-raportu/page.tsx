@@ -6,16 +6,11 @@ export default function DemoRaportuPage() {
     <section className="section-shell">
       <EmptyState
         title="Demo raportu zostało wyłączone"
-        description="Raporty są teraz tworzone ręcznie w panelu admina i widoczne publicznie dopiero po publikacji. Przejdź do listy analiz albo utwórz pierwszy raport w panelu."
+        description="Raporty są teraz tworzone jako lokalne analizy i widoczne publicznie dopiero po publikacji."
         action={
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/analizy" className="btn-secondary justify-center">
-              Analizy
-            </Link>
-            <Link href="/admin" className="btn-primary justify-center">
-              Panel admina
-            </Link>
-          </div>
+          <Link href="/analizy" className="btn-primary justify-center">
+            Przejdź do analiz
+          </Link>
         }
       />
     </section>

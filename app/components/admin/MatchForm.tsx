@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { marketDefinitions } from "@/lib/calculations";
+import { marketDefinitions, safeNumber } from "@/lib/calculations";
 import { normalizeAnalysis } from "@/lib/storage";
 import type {
   AccessStatus,
   DataLevel,
   MarketKey,
   MatchAnalysisRecord,
+  NumericValue,
   PublicationStatus,
   RiskLevel,
   TeamManualStats,
@@ -15,17 +16,17 @@ import type {
 import { AdminLivePreview } from "./AdminLivePreview";
 
 const statFields: Array<{ key: keyof TeamManualStats; label: string; type?: "text" | "number" }> = [
-  { key: "goalsForLast5", label: "gole strzelone" },
-  { key: "goalsAgainstLast5", label: "gole stracone" },
-  { key: "cornersForLast5", label: "rożne wykonane" },
-  { key: "cornersAgainstLast5", label: "rożne przeciwników" },
-  { key: "cardsForLast5", label: "kartki własne" },
-  { key: "cardsAgainstLast5", label: "kartki przeciwników" },
-  { key: "shotsForLast5", label: "strzały" },
-  { key: "shotsAgainstLast5", label: "strzały przeciwników" },
+  { key: "goalsForLast5", label: "Gole strzelone" },
+  { key: "goalsAgainstLast5", label: "Gole stracone" },
+  { key: "cornersForLast5", label: "Rożne wykonane" },
+  { key: "cornersAgainstLast5", label: "Rożne przeciwko" },
+  { key: "cardsForLast5", label: "Kartki" },
+  { key: "cardsAgainstLast5", label: "Kartki przeciwników" },
+  { key: "shotsForLast5", label: "Strzały" },
+  { key: "shotsAgainstLast5", label: "Strzały przeciwko" },
   { key: "xgForLast5", label: "xG" },
   { key: "xgAgainstLast5", label: "xG przeciwko" },
-  { key: "formLast5", label: "forma W,D,L", type: "text" },
+  { key: "formLast5", label: "Forma W/D/L", type: "text" },
 ];
 
 function Field({
@@ -61,6 +62,14 @@ function FormSection({
   );
 }
 
+function numericInputValue(value: NumericValue | undefined) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function parseNumericInput(value: string): NumericValue {
+  return safeNumber(value);
+}
+
 export function MatchForm({
   analysis,
   allMatches,
@@ -70,7 +79,7 @@ export function MatchForm({
   analysis: MatchAnalysisRecord;
   allMatches: MatchAnalysisRecord[];
   onCancel: () => void;
-  onSave: (analysis: MatchAnalysisRecord) => void;
+  onSave: (analysis: MatchAnalysisRecord) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState<MatchAnalysisRecord>(() => analysis);
   const normalizedDraft = useMemo(() => normalizeAnalysis(draft, allMatches), [allMatches, draft]);
@@ -79,12 +88,10 @@ export function MatchForm({
     setDraft((current) => updater(current));
   }
 
-  function numberValue(value: string) {
-    const parsed = Number(value.replace(",", "."));
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  function updateBasic(key: keyof MatchAnalysisRecord["basic"], value: string) {
+  function updateBasic<K extends keyof MatchAnalysisRecord["basic"]>(
+    key: K,
+    value: MatchAnalysisRecord["basic"][K],
+  ) {
     updateDraft((current) => ({
       ...current,
       basic: {
@@ -101,7 +108,7 @@ export function MatchForm({
         ...current.manualStats,
         [team]: {
           ...current.manualStats[team],
-          [key]: key === "formLast5" ? value : numberValue(value),
+          [key]: key === "formLast5" ? value : parseNumericInput(value),
         },
       },
     }));
@@ -112,7 +119,7 @@ export function MatchForm({
       ...current,
       odds: {
         ...current.odds,
-        [key]: numberValue(value),
+        [key]: parseNumericInput(value),
       },
     }));
   }
@@ -122,7 +129,7 @@ export function MatchForm({
       ...current,
       userProbabilities: {
         ...current.userProbabilities,
-        [key]: numberValue(value),
+        [key]: parseNumericInput(value),
       },
     }));
   }
@@ -149,7 +156,7 @@ export function MatchForm({
 
   function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(normalizedDraft);
+    void onSave(normalizedDraft);
   }
 
   return (
@@ -157,11 +164,11 @@ export function MatchForm({
       <div className="space-y-6">
         <div className="flex flex-col justify-between gap-4 rounded-3xl border border-white/10 bg-white/[0.05] p-5 md:flex-row md:items-center">
           <div>
-            <p className="eyebrow">Formularz analizy</p>
+            <p className="eyebrow">Pełna analiza</p>
             <h2 className="mt-2 text-3xl font-black text-white">
               Slot {String(draft.slotNumber).padStart(2, "0")}
             </h2>
-            <p className="mt-2 text-sm text-slate-400">Slug: {normalizedDraft.slug}</p>
+            <p className="mt-2 text-sm text-slate-400">Slug raportu: {normalizedDraft.slug}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button type="button" className="btn-secondary justify-center" onClick={onCancel}>
@@ -174,7 +181,7 @@ export function MatchForm({
         </div>
 
         <FormSection title="A) Status i publikacja">
-          <Field label="publicationStatus">
+          <Field label="Status publikacji">
             <select
               className="admin-input"
               value={draft.publicationStatus}
@@ -185,50 +192,50 @@ export function MatchForm({
                 }))
               }
             >
-              <option value="draft">draft</option>
-              <option value="published">published</option>
-              <option value="archived">archived</option>
+              <option value="draft">Szkic</option>
+              <option value="published">Opublikowana</option>
+              <option value="archived">Zarchiwizowana</option>
             </select>
           </Field>
-          <Field label="status">
+          <Field label="Dostęp raportu">
             <select
               className="admin-input"
               value={draft.basic.status}
               onChange={(event) => updateBasic("status", event.target.value as AccessStatus)}
             >
-              <option value="free">free</option>
-              <option value="premium">premium</option>
+              <option value="free">Darmowa</option>
+              <option value="premium">Premium</option>
             </select>
           </Field>
-          <Field label="dataLevel">
+          <Field label="Poziom danych">
             <select
               className="admin-input"
               value={draft.basic.dataLevel}
               onChange={(event) => updateBasic("dataLevel", event.target.value as DataLevel)}
             >
-              <option value="basic">basic</option>
-              <option value="advanced">advanced</option>
+              <option value="basic">Podstawowy</option>
+              <option value="advanced">Zaawansowany</option>
             </select>
           </Field>
-          <Field label="slotNumber">
+          <Field label="Numer slotu">
             <input className="admin-input" value={draft.slotNumber} readOnly />
           </Field>
         </FormSection>
 
         <FormSection title="B) Dane meczu">
-          <Field label="liga">
+          <Field label="Liga">
             <input className="admin-input" value={draft.basic.league} onChange={(event) => updateBasic("league", event.target.value)} />
           </Field>
-          <Field label="kraj">
+          <Field label="Kraj">
             <input className="admin-input" value={draft.basic.country} onChange={(event) => updateBasic("country", event.target.value)} />
           </Field>
-          <Field label="gospodarz">
+          <Field label="Gospodarz">
             <input className="admin-input" value={draft.basic.homeTeam} onChange={(event) => updateBasic("homeTeam", event.target.value)} />
           </Field>
-          <Field label="gość">
+          <Field label="Gość">
             <input className="admin-input" value={draft.basic.awayTeam} onChange={(event) => updateBasic("awayTeam", event.target.value)} />
           </Field>
-          <Field label="data/godzina">
+          <Field label="Data i godzina">
             <input
               className="admin-input"
               type="datetime-local"
@@ -236,10 +243,10 @@ export function MatchForm({
               onChange={(event) => updateBasic("kickoff", event.target.value)}
             />
           </Field>
-          <Field label="link FotMob">
+          <Field label="Link do źródła danych">
             <input className="admin-input" value={draft.basic.fotmobUrl} onChange={(event) => updateBasic("fotmobUrl", event.target.value)} />
           </Field>
-          <Field label="venue">
+          <Field label="Stadion / miejsce meczu">
             <input className="admin-input" value={draft.basic.venue} onChange={(event) => updateBasic("venue", event.target.value)} />
           </Field>
         </FormSection>
@@ -249,8 +256,8 @@ export function MatchForm({
             key={team}
             title={
               team === "home"
-                ? "C) Dane liczbowe z FotMob — gospodarze, ostatnie 5 meczów"
-                : "D) Dane liczbowe z FotMob — goście, ostatnie 5 meczów"
+                ? "C) Statystyki gospodarzy z ostatnich 5 meczów"
+                : "D) Statystyki gości z ostatnich 5 meczów"
             }
           >
             {statFields.map((field) => (
@@ -259,23 +266,27 @@ export function MatchForm({
                   className="admin-input"
                   type={field.type === "text" ? "text" : "number"}
                   step="0.01"
-                  value={draft.manualStats[team][field.key]}
+                  value={
+                    field.key === "formLast5"
+                      ? String(draft.manualStats[team][field.key] || "")
+                      : numericInputValue(draft.manualStats[team][field.key] as NumericValue)
+                  }
                   onChange={(event) => updateStats(team, field.key, event.target.value)}
-                  placeholder={field.key === "formLast5" ? "W,W,D,L,W" : "0"}
+                  placeholder={field.key === "formLast5" ? "np. W,W,D,L,W" : ""}
                 />
               </Field>
             ))}
           </FormSection>
         ))}
 
-        <FormSection title="E) Kursy — wpisywane ręcznie z Fortuny">
+        <FormSection title="E) Kursy — wpisywane ręcznie">
           {marketDefinitions.map((market) => (
             <Field key={market.key} label={market.label}>
               <input
                 className="admin-input"
                 type="number"
                 step="0.01"
-                value={draft.odds[market.key]}
+                value={numericInputValue(draft.odds[market.key])}
                 onChange={(event) => updateOdds(market.key, event.target.value)}
               />
             </Field>
@@ -283,25 +294,10 @@ export function MatchForm({
         </FormSection>
 
         <FormSection
-          title="F) Moja ocena %"
-          description="Jeśli zostawisz puste, AnalityQ użyje modelowego prawdopodobieństwa. Jeśli wpiszesz własną ocenę, zostanie użyta do obliczenia edge."
+          title="F) Poziom ryzyka i pewność analizy"
+          description="Pewność analizy ocenia jakość i kompletność danych, a nie gwarancję wyniku."
         >
-          {marketDefinitions.map((market) => (
-            <Field key={market.key} label={market.label}>
-              <input
-                className="admin-input"
-                type="number"
-                step="0.1"
-                value={draft.userProbabilities[market.key] ?? ""}
-                onChange={(event) => updateUserProbability(market.key, event.target.value)}
-                placeholder="opcjonalnie"
-              />
-            </Field>
-          ))}
-        </FormSection>
-
-        <FormSection title="G) Ryzyko i confidence">
-          <Field label="riskLevel">
+          <Field label="Poziom ryzyka">
             <select
               className="admin-input"
               value={draft.settings.riskLevel}
@@ -312,28 +308,29 @@ export function MatchForm({
                 }))
               }
             >
-              <option value="low">low</option>
-              <option value="medium">medium</option>
-              <option value="high">high</option>
+              <option value="auto">Automatyczny</option>
+              <option value="low">Niski</option>
+              <option value="medium">Średni</option>
+              <option value="high">Wysoki</option>
             </select>
           </Field>
-          <Field label="confidence opcjonalnie 1–100">
+          <Field label="Pewność analizy — opcjonalnie 1-100">
             <input
               className="admin-input"
               type="number"
-              min="0"
+              min="1"
               max="100"
-              value={draft.settings.confidence}
+              value={numericInputValue(draft.settings.confidence)}
               onChange={(event) =>
                 updateDraft((current) => ({
                   ...current,
-                  settings: { ...current.settings, confidence: numberValue(event.target.value) },
+                  settings: { ...current.settings, confidence: parseNumericInput(event.target.value) },
                 }))
               }
             />
           </Field>
           <div className="sm:col-span-2">
-            <Field label="notatka ryzyka">
+            <Field label="Notatka ryzyka">
               <textarea
                 className="admin-textarea"
                 value={draft.settings.riskNote}
@@ -348,19 +345,44 @@ export function MatchForm({
           </div>
         </FormSection>
 
-        <FormSection title="H) Notatki analityczne">
+        <details className="admin-form-section group">
+          <summary className="cursor-pointer list-none">
+            <span className="text-xl font-black text-white">Zaawansowane korekty modelu</span>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Zostaw puste, jeśli chcesz użyć wyliczeń modelu. Wpisz własną wartość tylko wtedy,
+              gdy świadomie chcesz skorygować model.
+            </p>
+          </summary>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {marketDefinitions.map((market) => (
+              <Field key={market.key} label={market.label}>
+                <input
+                  className="admin-input"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={numericInputValue(draft.userProbabilities[market.key])}
+                  onChange={(event) => updateUserProbability(market.key, event.target.value)}
+                />
+              </Field>
+            ))}
+          </div>
+        </details>
+
+        <FormSection title="G) Notatki analityczne">
           {[
-            ["summary", "summary"],
-            ["homeStrengths", "mocne strony gospodarzy"],
-            ["awayStrengths", "mocne strony gości"],
-            ["keyRisks", "ryzyka"],
-            ["scenarios", "scenariusze"],
-            ["workNotes", "notatki robocze z FotMob/Fortuny"],
-            ["finalAssessment", "ocena końcowa"],
+            ["summary", "Podsumowanie ręczne"],
+            ["homeStrengths", "Mocne strony gospodarzy"],
+            ["awayStrengths", "Mocne strony gości"],
+            ["keyRisks", "Ryzyka"],
+            ["scenarios", "Scenariusze"],
+            ["workNotes", "Notatki robocze"],
+            ["finalAssessment", "Ocena końcowa"],
             ["h2hNotes", "H2H"],
-            ["lineupsNotes", "składy / absencje"],
-            ["injuriesNotes", "kontuzje / absencje"],
-            ["generalStatsNotes", "general stats notes"],
+            ["lineupsNotes", "Składy / absencje"],
+            ["injuriesNotes", "Kontuzje / absencje"],
+            ["generalStatsNotes", "Notatki statystyczne"],
           ].map(([key, label]) => (
             <div key={key} className="sm:col-span-2">
               <Field label={label}>
@@ -374,15 +396,15 @@ export function MatchForm({
           ))}
         </FormSection>
 
-        <FormSection title="I) Sekcje premium">
+        <FormSection title="H) Sekcje premium">
           {[
-            ["cornersAnalysis", "rożne"],
-            ["cardsAnalysis", "kartki"],
-            ["shotsAnalysis", "strzały"],
-            ["halvesAnalysis", "połowy"],
-            ["advancedRisk", "advanced risk"],
-            ["h2hAdvanced", "H2H advanced"],
-            ["lineupsAdvanced", "składy advanced"],
+            ["cornersAnalysis", "Rzuty rożne"],
+            ["cardsAnalysis", "Kartki"],
+            ["shotsAnalysis", "Strzały"],
+            ["halvesAnalysis", "Połowy"],
+            ["advancedRisk", "Zaawansowane ryzyko"],
+            ["h2hAdvanced", "Zaawansowane H2H"],
+            ["lineupsAdvanced", "Zaawansowane składy"],
           ].map(([key, label]) => (
             <div key={key} className="sm:col-span-2">
               <Field label={label}>

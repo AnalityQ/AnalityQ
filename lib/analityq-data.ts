@@ -1,101 +1,115 @@
-export const adminPassword = "analityq2026";
+import { STUDIO_PASSWORD } from "./studio-auth";
+
+export const adminPassword = STUDIO_PASSWORD;
 
 export const disclaimer =
-  "AnalityQ dostarcza dane, kontekst i analizę ryzyka. Raporty nie gwarantują wyniku i nie są rekomendacją hazardową. Decyzje użytkownik podejmuje samodzielnie.";
+  "Model AnalityQ jest narzędziem pomocniczym opartym na danych wejściowych. Wyniki procentowe i Value Index mają charakter szacunkowy, nie gwarantują rezultatu i nie są rekomendacją hazardową. Decyzje użytkownik podejmuje samodzielnie.";
 
-export const modelDisclaimer =
-  "Model AnalityQ jest uproszczonym narzędziem pomocniczym. Wyniki procentowe są szacunkowe i zależą od jakości danych wejściowych. Raport nie gwarantuje wyniku i nie jest rekomendacją hazardową. Decyzje użytkownik podejmuje samodzielnie.";
+export const modelDisclaimer = disclaimer;
 
 export const navItems = [
   { label: "Start", href: "/" },
   { label: "Analizy", href: "/analizy" },
-  { label: "Jak to działa", href: "/jak-to-dziala" },
+  { label: "Jak działa model", href: "/jak-to-dziala" },
   { label: "Premium", href: "/premium" },
   { label: "FAQ", href: "/faq" },
 ];
 
 export const analysisAreas = [
   {
-    title: "Dane wejściowe",
-    mark: "IN",
-    description: "Ręcznie wpisane statystyki, kursy, notatki, składy i absencje.",
-  },
-  {
-    title: "Średnie last5",
+    title: "Forma drużyn",
     mark: "F5",
-    description: "Automatyczne średnie z ostatnich 5 meczów dla obu drużyn.",
+    description: "Ostatnie pięć spotkań, bilans formy oraz stabilność wyników obu zespołów.",
   },
   {
-    title: "Kursy i implied %",
+    title: "Gole i xG",
+    mark: "xG",
+    description: "Bramki, expected goals i szacowany potencjał bramkowy spotkania.",
+  },
+  {
+    title: "Rzuty rożne",
+    mark: "RZ",
+    description: "Wolumen rożnych wykonanych i dopuszczanych przez obie drużyny.",
+  },
+  {
+    title: "Kartki",
+    mark: "KD",
+    description: "Średnie kartek oraz profil spotkania pod kątem przerywania gry.",
+  },
+  {
+    title: "Kursy i implied probability",
     mark: "IP",
-    description: "Przeliczenie kursów na implied probability dla każdego rynku.",
+    description: "Kursy wpisywane ręcznie i prawdopodobieństwo wynikające z kursu.",
   },
   {
-    title: "Modelowe %",
-    mark: "MP",
-    description: "Uproszczony model pomocniczy oparty na danych wejściowych.",
+    title: "Edge i Value Index",
+    mark: "VI",
+    description: "Edge — przewaga modelu nad kursem, połączona z ryzykiem i jakością danych.",
   },
   {
-    title: "Edge",
-    mark: "EG",
-    description: "Różnica między użytym prawdopodobieństwem a implied probability.",
-  },
-  {
-    title: "Value signal",
-    mark: "VS",
-    description: "Ocena rynku: od braku sygnału po wysoki value signal.",
-  },
-  {
-    title: "Ryzyko",
+    title: "Ryzyko meczu",
     mark: "RK",
-    description: "Ręcznie opisany poziom ryzyka oraz kara w Value Index.",
+    description: "Automatyczny lub ręczny poziom ryzyka oparty na kompletności danych i kontekście.",
   },
   {
-    title: "Watchlist",
-    mark: "WL",
-    description: "Raporty z mocniejszym Value Index i akceptowalnym ryzykiem.",
-  },
-  {
-    title: "Premium sections",
-    mark: "PR",
-    description: "Rozszerzone notatki o rożnych, kartkach, strzałach i składach.",
-  },
-  {
-    title: "Decyzja użytkownika",
-    mark: "DU",
-    description: "Raport wspiera analizę, ale nie zastępuje samodzielnej decyzji.",
+    title: "Scenariusze spotkania",
+    mark: "SC",
+    description: "Opis możliwego przebiegu meczu generowany z danych oraz notatek analitycznych.",
   },
 ];
 
 export const pipelineSteps = [
   {
     title: "Dane wejściowe",
-    text: "Admin ręcznie wpisuje dane meczu, statystyki z FotMob, kursy z Fortuny, notatki, składy i ryzyka.",
+    text: "Analityk ręcznie wpisuje dane meczu, statystyki, kursy, formę, składy i absencje.",
   },
   {
-    title: "Model pomocniczy",
-    text: "AnalityQ liczy średnie last5, expected goals, implied probability, edge i modelowe prawdopodobieństwo.",
+    title: "Obliczenia statystyczne",
+    text: "AnalityQ liczy średnie z ostatnich pięciu meczów, expected goals, rożne, kartki i prawdopodobieństwa modelowe.",
   },
   {
-    title: "Analiza ryzyka",
-    text: "Poziom ryzyka wpływa na Value Index, confidence i kwalifikację raportu do watchlist.",
+    title: "Porównanie z kursem",
+    text: "Kursy są przeliczane na implied probability, a model porównuje je z użytym prawdopodobieństwem i wylicza edge.",
   },
   {
-    title: "Raport",
-    text: "Opublikowana analiza trafia do listy publicznej, a użytkownik czyta dane, scenariusze i kontekst.",
+    title: "Ocena ryzyka",
+    text: "Poziom ryzyka uwzględnia kompletność danych, stabilność sygnałów, składy i zmienność meczu.",
+  },
+  {
+    title: "Raport końcowy",
+    text: "Opublikowana analiza trafia do publicznej listy jako przejrzysty raport z danymi, scenariuszami i disclaimerem.",
+  },
+];
+
+export const audienceCards = [
+  {
+    title: "Osoby analizujące mecze",
+    text: "Jeden widok na kursy, prawdopodobieństwa modelowe, ryzyko i scenariusze.",
+  },
+  {
+    title: "Twórcy sportowi",
+    text: "Czytelne raporty do omawiania spotkań bez chaotycznych arkuszy i luźnych notatek.",
+  },
+  {
+    title: "Społeczności premium",
+    text: "Uporządkowana prezentacja analiz z podziałem na sekcje darmowe i rozszerzone.",
+  },
+  {
+    title: "Osoby szukające danych",
+    text: "Szybki kontekst meczowy, kluczowe metryki i jasna informacja o poziomie ryzyka.",
   },
 ];
 
 export const pricingPlans = [
   {
-    name: "Free",
+    name: "Darmowy",
     price: "0 zł",
     label: "Podstawowy raport",
     description: "Publiczny widok raportu z podstawowymi metrykami i tabelą kursów.",
     features: [
-      "Summary i forma drużyn",
+      "Podsumowanie modelu i forma drużyn",
       "Średnie z ostatnich 5 meczów",
-      "Tabela kursów i edge",
+      "Tabela kursów, implied probability i edge",
       "Podstawowy Value Index",
     ],
   },
@@ -106,22 +120,22 @@ export const pricingPlans = [
     highlighted: true,
     description: "Rozszerzone sekcje analityczne dla głębszej pracy z raportem.",
     features: [
-      "Rożne, kartki i strzały",
+      "Rzuty rożne, kartki i strzały",
       "Analiza połówek",
-      "Advanced risk",
-      "H2H i składy",
-      "Premium notes",
+      "Zaawansowane ryzyko",
+      "H2H, składy i absencje",
+      "Rozszerzone notatki premium",
     ],
   },
   {
     name: "Pro",
     price: "129 zł",
-    label: "Workspace admina",
-    description: "Proces pracy dla wielu raportów, importu, eksportu i watchlist.",
+    label: "Przestrzeń robocza",
+    description: "Proces pracy dla wielu raportów, kopii zapasowych i watchlisty.",
     features: [
       "20 slotów analiz",
-      "Import i export JSON",
-      "Watchlist value signal",
+      "Kopia zapasowa JSON",
+      "Watchlista sygnałów value",
       "Archiwum raportów",
     ],
   },
@@ -134,8 +148,8 @@ export const comparisonRows = [
   ["Sekcje kartek", "Zablokowane", "Tak", "Tak"],
   ["Sekcje strzałów", "Zablokowane", "Tak", "Tak"],
   ["Analiza połówek", "Zablokowane", "Tak", "Tak"],
-  ["Import / Export JSON", "Nie", "Nie", "Tak"],
-  ["Panel admina", "Nie", "Nie", "Tak"],
+  ["Kopia zapasowa JSON", "Nie", "Nie", "Tak"],
+  ["Przestrzeń robocza", "Nie", "Nie", "Tak"],
 ];
 
 export const faqItems = [
@@ -152,17 +166,22 @@ export const faqItems = [
   {
     question: "Czym jest Value Index?",
     answer:
-      "Value Index to syntetyczna ocena jakości sygnału analitycznego. Łączy confidence, edge, poziom ryzyka i kompletność danych wejściowych.",
+      "Value Index to syntetyczna ocena jakości sygnału analitycznego. Łączy pewność analizy, edge — przewagę modelu nad kursem, poziom ryzyka i kompletność danych wejściowych.",
+  },
+  {
+    question: "Czym jest implied probability?",
+    answer:
+      "Implied probability to prawdopodobieństwo wynikające z kursu. AnalityQ porównuje je z prawdopodobieństwem modelowym i wylicza edge.",
   },
   {
     question: "Skąd są dane?",
     answer:
-      "W prototypie dane są wpisywane ręcznie przez admina. AnalityQ nie pobiera automatycznie danych z FotMob ani Fortuny.",
+      "W prototypie dane są wpisywane ręcznie przez osobę prowadzącą analizę. AnalityQ nie pobiera automatycznie danych z FotMob ani Fortuny.",
   },
   {
     question: "Czy publicznie widać szkice?",
     answer:
-      "Nie. Publiczna lista pokazuje tylko raporty ze statusem published. Szkice i archiwum są widoczne wyłącznie w panelu admina.",
+      "Nie. Publiczna lista pokazuje tylko raporty opublikowane. Szkice i archiwum są widoczne wyłącznie w ukrytej przestrzeni roboczej.",
   },
   {
     question: "Jak czytać poziom ryzyka?",
@@ -170,8 +189,8 @@ export const faqItems = [
       "Poziom ryzyka opisuje zmienność raportu: wpływ absencji, jakości danych, składów, stylu gry i sprzecznych sygnałów.",
   },
   {
-    question: "Czy to jest produkcyjne zabezpieczenie admina?",
+    question: "Czy to jest produkcyjne zabezpieczenie?",
     answer:
-      "Nie. Hasło w panelu admina jest blokadą demonstracyjną dla lokalnego prototypu i nie zastępuje prawdziwego uwierzytelniania.",
+      "Nie. Hasło w przestrzeni roboczej jest blokadą demonstracyjną dla lokalnego prototypu i nie zastępuje prawdziwego uwierzytelniania.",
   },
 ];

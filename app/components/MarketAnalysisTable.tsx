@@ -1,26 +1,30 @@
-import type { FullReportMetrics } from "@/lib/types";
+import type { FullReportMetrics, NumericValue } from "@/lib/types";
 import { EdgeBadge } from "./Badges";
 
-function formatPercent(value: number | null) {
+function formatPercent(value: NumericValue) {
   if (value === null) return "brak danych";
   return `${value.toFixed(1)}%`;
 }
 
-function formatOdds(value: number) {
-  return value > 0 ? value.toFixed(2) : "brak danych";
+function formatOdds(value: NumericValue) {
+  return value !== null && value > 0 ? value.toFixed(2) : "brak danych";
+}
+
+function formatEdge(value: NumericValue) {
+  return value === null ? "brak danych" : `${value.toFixed(1)} pp`;
 }
 
 export function MarketAnalysisTable({ metrics }: { metrics: FullReportMetrics }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04]">
-      <table className="w-full min-w-[920px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[980px] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-white/10 text-slate-300">
             <th className="p-4 font-bold">Rynek</th>
             <th className="p-4 font-bold">Kurs</th>
             <th className="p-4 font-bold">Implied %</th>
             <th className="p-4 font-bold">Model %</th>
-            <th className="p-4 font-bold">Moja ocena %</th>
+            <th className="p-4 font-bold">Korekta ręczna %</th>
             <th className="p-4 font-bold">Użyte %</th>
             <th className="p-4 font-bold">Edge</th>
             <th className="p-4 font-bold">Status</th>
@@ -35,7 +39,7 @@ export function MarketAnalysisTable({ metrics }: { metrics: FullReportMetrics })
               <td className="p-4 text-slate-300">{formatPercent(market.model)}</td>
               <td className="p-4 text-slate-300">{formatPercent(market.user)}</td>
               <td className="p-4 text-slate-100">{formatPercent(market.used)}</td>
-              <td className="p-4 text-slate-100">{market.edge === null ? "brak danych" : `${market.edge.toFixed(1)} pp`}</td>
+              <td className="p-4 text-slate-100">{formatEdge(market.edge)}</td>
               <td className="p-4">
                 <EdgeBadge status={market.status} edge={market.edge} />
               </td>
@@ -43,6 +47,10 @@ export function MarketAnalysisTable({ metrics }: { metrics: FullReportMetrics })
           ))}
         </tbody>
       </table>
+      <div className="border-t border-white/10 px-4 py-3 text-xs leading-5 text-slate-400">
+        Implied probability to prawdopodobieństwo wynikające z kursu. Edge to przewaga modelu nad
+        implied probability dla danego rynku.
+      </div>
     </div>
   );
 }

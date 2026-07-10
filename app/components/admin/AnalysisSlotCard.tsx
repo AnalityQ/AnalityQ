@@ -52,7 +52,13 @@ export function AnalysisSlotCard({
   }
 
   const metrics = calculateFullReportMetrics(match);
-  const nextStatus = match.publicationStatus === "published" ? "draft" : "published";
+  const nextStatus = match.publicationStatus === "published" || match.publicationStatus === "archived" ? "draft" : "published";
+  const nextStatusLabel =
+    match.publicationStatus === "published"
+      ? "Cofnij publikację"
+      : match.publicationStatus === "archived"
+        ? "Przywróć jako szkic"
+        : "Opublikuj";
 
   return (
     <article className="match-card card-hover">
@@ -76,15 +82,17 @@ export function AnalysisSlotCard({
           <p className="mt-1 text-xl font-black text-amber-100">{Math.round(metrics.valueIndex)}</p>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-          <p className="text-xs text-slate-400">Confidence</p>
+          <p className="text-xs text-slate-400">Pewność analizy</p>
           <p className="mt-1 text-xl font-black text-cyan-100">{Math.round(metrics.confidence)}%</p>
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <RiskBadge level={match.settings.riskLevel} />
+        <RiskBadge level={metrics.effectiveRiskLevel} />
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-400">Best Value Market: {metrics.bestValueMarket}</p>
+      <p className="mt-4 text-xs leading-5 text-slate-400">
+        Najlepszy sygnał value: {metrics.bestValueMarket}
+      </p>
 
       <div className="mt-6 grid gap-2">
         <button type="button" className="btn-secondary justify-center" onClick={() => onEdit(match)}>
@@ -94,11 +102,13 @@ export function AnalysisSlotCard({
           Otwórz raport
         </Link>
         <button type="button" className="btn-primary justify-center" onClick={() => onStatus(match.id, nextStatus)}>
-          {match.publicationStatus === "published" ? "Cofnij publikację" : "Opublikuj"}
+          {nextStatusLabel}
         </button>
-        <button type="button" className="btn-secondary justify-center" onClick={() => onStatus(match.id, "archived")}>
-          Archiwizuj
-        </button>
+        {match.publicationStatus !== "archived" && (
+          <button type="button" className="btn-secondary justify-center" onClick={() => onStatus(match.id, "archived")}>
+            Zarchiwizuj
+          </button>
+        )}
         <button type="button" className="btn-secondary justify-center" onClick={() => onDelete(match.id)}>
           Usuń
         </button>

@@ -21,8 +21,8 @@ export default function JakToDzialaPage() {
       <section className="section-shell">
         <SectionHeader
           eyebrow="Proces"
-          title="Jak działa AnalityQ?"
-          description="Platforma zbiera dane, porządkuje je przez model pomocniczy, ocenia ryzyko i pokazuje raport. Użytkownik podejmuje własną decyzję."
+          title="Jak działa model AnalityQ?"
+          description="Platforma zbiera dane wejściowe, porządkuje je przez model pomocniczy, ocenia ryzyko i pokazuje raport końcowy."
           align="center"
         />
         <div className="mt-12">
@@ -40,7 +40,7 @@ export default function JakToDzialaPage() {
             />
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               {dataCards.map(([title, text]) => (
-                <MetricCard key={title} label={title} value="DATA" note={text} tone="cyan" />
+                <MetricCard key={title} label={title} value="DANE" note={text} tone="cyan" />
               ))}
             </div>
           </div>
@@ -64,21 +64,21 @@ export default function JakToDzialaPage() {
       <section className="section-shell !pt-0">
         <div className="output-report">
           <div>
-            <p className="eyebrow">Output report</p>
+            <p className="eyebrow">Raport końcowy</p>
             <h2 className="mt-3 text-3xl font-black text-white md:text-5xl">
               Raport zamiast uproszczonej odpowiedzi
             </h2>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
               Wynikiem pracy AnalityQ jest widok, który pokazuje dane, ryzyko,
               scenariusze i uzasadnienie Value Index. To wspiera analizę, ale
-              nie zastępuje decyzji użytkownika.
+              nie zastępuje samodzielnej decyzji użytkownika.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            {["Value Index", "Risk Level", "Scenariusze"].map((item) => (
+            {["Value Index", "Poziom ryzyka", "Scenariusze"].map((item) => (
               <div key={item} className="rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
                 <p className="text-sm text-slate-400">{item}</p>
-                <p className="mt-2 text-xl font-black text-white">ready</p>
+                <p className="mt-2 text-xl font-black text-white">gotowe</p>
               </div>
             ))}
           </div>

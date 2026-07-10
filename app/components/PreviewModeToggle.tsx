@@ -18,7 +18,7 @@ export function PreviewModeToggle({
             mode === item ? "bg-amber-200 text-[#06101f]" : "text-slate-300 hover:text-white"
           }`}
         >
-          {item === "free" ? "Free" : "Premium"}
+          {item === "free" ? "Darmowa" : "Premium"}
         </button>
       ))}
     </div>

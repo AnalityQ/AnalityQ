@@ -1,9 +1,12 @@
 import type {
+  DataCompleteness,
+  EffectiveRiskLevel,
   FullReportMetrics,
   MarketEdge,
   MarketKey,
   MarketNumbers,
   MatchAnalysisRecord,
+  NumericValue,
   TeamAverages,
   TeamManualStats,
 } from "./types";
@@ -22,54 +25,91 @@ export const marketDefinitions: Array<{ key: MarketKey; label: string }> = [
   { key: "cardsUnder35", label: "kartki under 3.5" },
 ];
 
-const emptyMarketNumbers = (): MarketNumbers => ({
-  homeWin: 0,
-  draw: 0,
-  awayWin: 0,
-  over25: 0,
-  under25: 0,
-  bttsYes: 0,
-  bttsNo: 0,
-  cornersOver85: 0,
-  cornersUnder85: 0,
-  cardsOver35: 0,
-  cardsUnder35: 0,
+export const statNumberKeys: Array<keyof Omit<TeamManualStats, "formLast5">> = [
+  "goalsForLast5",
+  "goalsAgainstLast5",
+  "cornersForLast5",
+  "cornersAgainstLast5",
+  "cardsForLast5",
+  "cardsAgainstLast5",
+  "shotsForLast5",
+  "shotsAgainstLast5",
+  "xgForLast5",
+  "xgAgainstLast5",
+];
+
+export const emptyMarketNumbers = (): MarketNumbers => ({
+  homeWin: null,
+  draw: null,
+  awayWin: null,
+  over25: null,
+  under25: null,
+  bttsYes: null,
+  bttsNo: null,
+  cornersOver85: null,
+  cornersUnder85: null,
+  cardsOver35: null,
+  cardsUnder35: null,
 });
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-export function safeNumber(value: unknown) {
+export function safeNumber(value: unknown): NumericValue {
+  if (value === null || value === undefined || value === "") return null;
+
   if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
+    return Number.isFinite(value) ? value : null;
   }
 
   if (typeof value === "string") {
     const normalized = value.replace(",", ".").trim();
+    if (!normalized) return null;
     const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
-  return 0;
+  return null;
 }
 
-export function round(value: number, digits = 1) {
+export function hasNumber(value: unknown) {
+  return safeNumber(value) !== null;
+}
+
+function numberOrZero(value: unknown) {
+  return safeNumber(value) ?? 0;
+}
+
+export function round(value: NumericValue, digits = 1): NumericValue {
+  if (value === null) return null;
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
 }
 
 export function normalizePercentages(values: number[]) {
-  const total = values.reduce((sum, value) => sum + safeNumber(value), 0);
-  if (total <= 0) {
-    return values.map(() => 0);
-  }
-
-  return values.map((value) => (safeNumber(value) / total) * 100);
+  const total = values.reduce((sum, value) => sum + numberOrZero(value), 0);
+  if (total <= 0) return values.map(() => null);
+  return values.map((value) => (numberOrZero(value) / total) * 100);
 }
 
-function avg(value: number) {
-  return safeNumber(value) / 5;
+function avg(value: NumericValue): NumericValue {
+  const parsed = safeNumber(value);
+  return parsed === null ? null : parsed / 5;
+}
+
+function meanAvailable(values: NumericValue[]): NumericValue {
+  const available = values.filter((value): value is number => value !== null);
+  if (available.length === 0) return null;
+  return available.reduce((sum, value) => sum + value, 0) / available.length;
+}
+
+function hasAny(values: NumericValue[]) {
+  return values.some((value) => value !== null);
+}
+
+function hasAll(values: NumericValue[]) {
+  return values.every((value) => value !== null);
 }
 
 function calculateTeamAverages(stats: TeamManualStats): TeamAverages {
@@ -94,110 +134,161 @@ export function calculateAverages(analysis: MatchAnalysisRecord) {
   };
 }
 
+function calculateExpectedGoals(analysis: MatchAnalysisRecord, averages = calculateAverages(analysis)) {
+  let expectedHomeGoals = meanAvailable([
+    averages.home.goalsForAvg,
+    averages.away.goalsAgainstAvg,
+  ]);
+  let expectedAwayGoals = meanAvailable([
+    averages.away.goalsForAvg,
+    averages.home.goalsAgainstAvg,
+  ]);
+
+  if (averages.home.xgForAvg !== null) {
+    expectedHomeGoals =
+      expectedHomeGoals === null ? averages.home.xgForAvg : expectedHomeGoals * 0.7 + averages.home.xgForAvg * 0.3;
+  }
+
+  if (averages.away.xgForAvg !== null) {
+    expectedAwayGoals =
+      expectedAwayGoals === null ? averages.away.xgForAvg : expectedAwayGoals * 0.7 + averages.away.xgForAvg * 0.3;
+  }
+
+  return {
+    expectedHomeGoals,
+    expectedAwayGoals,
+    totalExpectedGoals:
+      expectedHomeGoals !== null && expectedAwayGoals !== null ? expectedHomeGoals + expectedAwayGoals : null,
+  };
+}
+
+function calculateExpectedCorners(averages: ReturnType<typeof calculateAverages>): NumericValue {
+  const values = [
+    averages.home.cornersForAvg,
+    averages.away.cornersForAvg,
+    averages.home.cornersAgainstAvg,
+    averages.away.cornersAgainstAvg,
+  ];
+
+  if (!hasAll(values)) return null;
+  return values.reduce((sum, value) => sum + numberOrZero(value), 0) / 2;
+}
+
+function calculateExpectedCards(averages: ReturnType<typeof calculateAverages>): NumericValue {
+  const values = [averages.home.cardsForAvg, averages.away.cardsForAvg];
+  if (!hasAll(values)) return null;
+  return values.reduce((sum, value) => sum + numberOrZero(value), 0) / 2;
+}
+
 export function calculateModelProbabilities(analysis: MatchAnalysisRecord): MarketNumbers {
   const averages = calculateAverages(analysis);
   const { home, away } = averages;
-  let expectedHomeGoals = (home.goalsForAvg + away.goalsAgainstAvg) / 2;
-  let expectedAwayGoals = (away.goalsForAvg + home.goalsAgainstAvg) / 2;
+  const { expectedHomeGoals, expectedAwayGoals, totalExpectedGoals } = calculateExpectedGoals(analysis, averages);
+  const result = emptyMarketNumbers();
 
-  if (analysis.manualStats.home.xgForLast5 > 0) {
-    expectedHomeGoals = expectedHomeGoals * 0.7 + home.xgForAvg * 0.3;
+  if (totalExpectedGoals !== null) {
+    const over25 = clamp(25 + totalExpectedGoals * 13, 25, 78);
+    result.over25 = over25;
+    result.under25 = 100 - over25;
   }
 
-  if (analysis.manualStats.away.xgForLast5 > 0) {
-    expectedAwayGoals = expectedAwayGoals * 0.7 + away.xgForAvg * 0.3;
+  if (expectedHomeGoals !== null && expectedAwayGoals !== null) {
+    const homeScoreChance = clamp(expectedHomeGoals * 35, 15, 85);
+    const awayScoreChance = clamp(expectedAwayGoals * 35, 15, 85);
+    const bttsYes = clamp((homeScoreChance + awayScoreChance) / 2, 20, 80);
+    result.bttsYes = bttsYes;
+    result.bttsNo = 100 - bttsYes;
   }
 
-  const totalExpectedGoals = expectedHomeGoals + expectedAwayGoals;
-  const over25 = clamp(25 + totalExpectedGoals * 13, 25, 78);
-  const under25 = 100 - over25;
-  const homeScoreChance = clamp(expectedHomeGoals * 35, 15, 85);
-  const awayScoreChance = clamp(expectedAwayGoals * 35, 15, 85);
-  const bttsYes = clamp((homeScoreChance + awayScoreChance) / 2, 20, 80);
-  const bttsNo = 100 - bttsYes;
+  if (
+    hasAny([
+      home.goalsForAvg,
+      home.goalsAgainstAvg,
+      home.shotsForAvg,
+      home.cornersForAvg,
+      away.goalsForAvg,
+      away.goalsAgainstAvg,
+      away.shotsForAvg,
+      away.cornersForAvg,
+    ])
+  ) {
+    let homeStrength =
+      numberOrZero(home.goalsForAvg) * 1.2 +
+      numberOrZero(home.shotsForAvg) * 0.08 +
+      numberOrZero(home.cornersForAvg) * 0.06 -
+      numberOrZero(home.goalsAgainstAvg) * 0.9;
+    const awayStrength =
+      numberOrZero(away.goalsForAvg) * 1.2 +
+      numberOrZero(away.shotsForAvg) * 0.08 +
+      numberOrZero(away.cornersForAvg) * 0.06 -
+      numberOrZero(away.goalsAgainstAvg) * 0.9;
 
-  let homeStrength =
-    home.goalsForAvg * 1.2 +
-    home.shotsForAvg * 0.08 +
-    home.cornersForAvg * 0.06 -
-    home.goalsAgainstAvg * 0.9;
-  const awayStrength =
-    away.goalsForAvg * 1.2 +
-    away.shotsForAvg * 0.08 +
-    away.cornersForAvg * 0.06 -
-    away.goalsAgainstAvg * 0.9;
+    homeStrength += 0.25;
+    const diff = homeStrength - awayStrength;
+    const homeWinBase = clamp(38 + diff * 10, 18, 70);
+    const awayWinBase = clamp(34 - diff * 10, 15, 65);
+    const drawBase = clamp(100 - homeWinBase - awayWinBase, 18, 34);
+    const normalized1x2 = normalizePercentages([homeWinBase, drawBase, awayWinBase]);
 
-  homeStrength += 0.25;
-  const diff = homeStrength - awayStrength;
-  const normalized1x2 = normalizePercentages([
-    clamp(38 + diff * 10, 18, 70),
-    clamp(100 - clamp(38 + diff * 10, 18, 70) - clamp(34 - diff * 10, 15, 65), 18, 34),
-    clamp(34 - diff * 10, 15, 65),
-  ]);
+    result.homeWin = normalized1x2[0];
+    result.draw = normalized1x2[1];
+    result.awayWin = normalized1x2[2];
+  }
 
-  const expectedCorners =
-    (home.cornersForAvg + away.cornersForAvg + home.cornersAgainstAvg + away.cornersAgainstAvg) / 2;
-  const cornersOver85 = clamp(25 + expectedCorners * 5, 20, 78);
-  const cornersUnder85 = 100 - cornersOver85;
-  const expectedCards = (home.cardsForAvg + away.cardsForAvg) / 2;
-  const cardsOver35 = clamp(20 + expectedCards * 14, 18, 80);
-  const cardsUnder35 = 100 - cardsOver35;
+  const expectedCorners = calculateExpectedCorners(averages);
+  if (expectedCorners !== null) {
+    const cornersOver85 = clamp(25 + expectedCorners * 5, 20, 78);
+    result.cornersOver85 = cornersOver85;
+    result.cornersUnder85 = 100 - cornersOver85;
+  }
 
-  return {
-    homeWin: normalized1x2[0],
-    draw: normalized1x2[1],
-    awayWin: normalized1x2[2],
-    over25,
-    under25,
-    bttsYes,
-    bttsNo,
-    cornersOver85,
-    cornersUnder85,
-    cardsOver35,
-    cardsUnder35,
-  };
+  const expectedCards = calculateExpectedCards(averages);
+  if (expectedCards !== null) {
+    const cardsOver35 = clamp(20 + expectedCards * 14, 18, 80);
+    result.cardsOver35 = cardsOver35;
+    result.cardsUnder35 = 100 - cardsOver35;
+  }
+
+  return result;
 }
 
 export function calculateImpliedProbabilities(odds: MarketNumbers) {
   return marketDefinitions.reduce(
     (result, market) => {
       const odd = safeNumber(odds[market.key]);
-      result[market.key] = odd > 0 ? 100 / odd : null;
+      result[market.key] = odd !== null && odd > 0 ? 100 / odd : null;
       return result;
     },
-    {} as Record<MarketKey, number | null>,
+    {} as Record<MarketKey, NumericValue>,
   );
 }
 
 export function getUsedProbability(
   key: MarketKey,
   modelProbabilities: MarketNumbers,
-  userProbabilities: Partial<Record<MarketKey, number>>,
+  userProbabilities: Partial<Record<MarketKey, NumericValue>>,
 ) {
   const userValue = safeNumber(userProbabilities[key]);
-  return userValue > 0 ? userValue : modelProbabilities[key];
+  return userValue !== null ? clamp(userValue, 0, 100) : modelProbabilities[key];
 }
 
 export function calculateEdges(
   modelProbabilities: MarketNumbers,
-  impliedProbabilities: Record<MarketKey, number | null>,
-  userProbabilities: Partial<Record<MarketKey, number>>,
+  impliedProbabilities: Record<MarketKey, NumericValue>,
+  userProbabilities: Partial<Record<MarketKey, NumericValue>>,
 ) {
   return marketDefinitions.reduce(
     (result, market) => {
       const implied = impliedProbabilities[market.key];
-      if (implied === null) {
-        result[market.key] = null;
-      } else {
-        result[market.key] = getUsedProbability(market.key, modelProbabilities, userProbabilities) - implied;
-      }
+      const used = getUsedProbability(market.key, modelProbabilities, userProbabilities);
+      result[market.key] = implied === null || used === null ? null : used - implied;
       return result;
     },
-    {} as Record<MarketKey, number | null>,
+    {} as Record<MarketKey, NumericValue>,
   );
 }
 
-export function getEdgeStatus(edge: number | null) {
+export function getEdgeStatus(edge: NumericValue) {
   if (edge === null) return "brak danych";
   if (edge > 8) return "wysoki value signal";
   if (edge >= 3) return "do obserwacji";
@@ -210,13 +301,64 @@ export function calculateBestValueMarket(markets: MarketEdge[]) {
     .filter((market) => market.edge !== null && market.edge > 0)
     .sort((a, b) => (b.edge || 0) - (a.edge || 0))[0];
 
-  return best ? best.label : "Brak wyraźnego value signal";
+  return best ? best.label : "Brak wyraźnego sygnału value";
 }
 
-export function calculateAutoConfidence(analysis: MatchAnalysisRecord) {
+export function calculateDataCompleteness(analysis: MatchAnalysisRecord): DataCompleteness {
+  const statValues = [
+    ...statNumberKeys.map((key) => analysis.manualStats.home[key]),
+    ...statNumberKeys.map((key) => analysis.manualStats.away[key]),
+  ];
+  const oddsValues = marketDefinitions.map((market) => analysis.odds[market.key]);
+  const values = [...statValues, ...oddsValues];
+  const filled = values.filter((value) => safeNumber(value) !== null).length;
+  const total = values.length;
+  const missingCritical =
+    (!hasNumber(analysis.manualStats.home.shotsForLast5) && !hasNumber(analysis.manualStats.home.xgForLast5)) ||
+    (!hasNumber(analysis.manualStats.away.shotsForLast5) && !hasNumber(analysis.manualStats.away.xgForLast5)) ||
+    !hasNumber(analysis.odds.homeWin) ||
+    !hasNumber(analysis.odds.draw) ||
+    !hasNumber(analysis.odds.awayWin);
+
+  return {
+    filled,
+    total,
+    missing: total - filled,
+    ratio: total === 0 ? 0 : filled / total,
+    missingCritical,
+  };
+}
+
+export function calculateAutoRiskLevel(
+  analysis: MatchAnalysisRecord,
+  modelProbabilities: MarketNumbers,
+  dataCompleteness: DataCompleteness,
+  maxPositiveEdge: number,
+): EffectiveRiskLevel {
+  const home = modelProbabilities.homeWin;
+  const draw = modelProbabilities.draw;
+  const away = modelProbabilities.awayWin;
+  const probabilities = [home, draw, away].filter((value): value is number => value !== null);
+  const isEven1x2 =
+    probabilities.length === 3 && Math.max(...probabilities) - Math.min(...probabilities) <= 10;
+  const hasStableForms =
+    analysis.manualStats.home.formLast5.trim().length >= 5 && analysis.manualStats.away.formLast5.trim().length >= 5;
+
+  if (dataCompleteness.ratio < 0.55 || dataCompleteness.missingCritical) return "high";
+  if (maxPositiveEdge > 8 && dataCompleteness.ratio < 0.72) return "high";
+  if (isEven1x2) return dataCompleteness.ratio >= 0.82 && hasStableForms ? "medium" : "high";
+  if (dataCompleteness.ratio >= 0.86 && hasStableForms) return "low";
+  return "medium";
+}
+
+export function calculateAutoConfidence(
+  analysis: MatchAnalysisRecord,
+  effectiveRiskLevel: EffectiveRiskLevel,
+  dataCompleteness: DataCompleteness,
+) {
   let confidence = 55;
 
-  if (analysis.manualStats.home.xgForLast5 > 0 || analysis.manualStats.away.xgForLast5 > 0) {
+  if (hasNumber(analysis.manualStats.home.xgForLast5) || hasNumber(analysis.manualStats.away.xgForLast5)) {
     confidence += 5;
   }
 
@@ -228,9 +370,12 @@ export function calculateAutoConfidence(analysis: MatchAnalysisRecord) {
     confidence += 5;
   }
 
-  if (analysis.settings.riskLevel === "high") {
+  if (dataCompleteness.ratio >= 0.85) confidence += 5;
+  if (dataCompleteness.ratio < 0.55) confidence -= 10;
+
+  if (effectiveRiskLevel === "high") {
     confidence -= 10;
-  } else if (analysis.settings.riskLevel === "medium") {
+  } else if (effectiveRiskLevel === "medium") {
     confidence -= 5;
   }
 
@@ -240,7 +385,7 @@ export function calculateAutoConfidence(analysis: MatchAnalysisRecord) {
 export function calculateValueIndex(
   confidence: number,
   markets: MarketEdge[],
-  riskLevel: MatchAnalysisRecord["settings"]["riskLevel"],
+  riskLevel: EffectiveRiskLevel,
 ) {
   const maxPositiveEdge = Math.max(
     0,
@@ -255,6 +400,9 @@ export function calculateValueIndex(
 
 export function calculateFullReportMetrics(analysis: MatchAnalysisRecord): FullReportMetrics {
   const averages = calculateAverages(analysis);
+  const expected = calculateExpectedGoals(analysis, averages);
+  const expectedCorners = calculateExpectedCorners(averages);
+  const expectedCards = calculateExpectedCards(averages);
   const modelProbabilities = calculateModelProbabilities(analysis);
   const impliedProbabilities = calculateImpliedProbabilities(analysis.odds);
   const edge = calculateEdges(modelProbabilities, impliedProbabilities, analysis.userProbabilities);
@@ -269,49 +417,41 @@ export function calculateFullReportMetrics(analysis: MatchAnalysisRecord): FullR
       odds: safeNumber(analysis.odds[market.key]),
       implied: impliedProbabilities[market.key],
       model: modelProbabilities[market.key],
-      user: user > 0 ? user : null,
+      user,
       used,
       edge: marketEdge,
       status: getEdgeStatus(marketEdge),
     };
   });
-
-  let expectedHomeGoals = (averages.home.goalsForAvg + averages.away.goalsAgainstAvg) / 2;
-  let expectedAwayGoals = (averages.away.goalsForAvg + averages.home.goalsAgainstAvg) / 2;
-
-  if (analysis.manualStats.home.xgForLast5 > 0) {
-    expectedHomeGoals = expectedHomeGoals * 0.7 + averages.home.xgForAvg * 0.3;
-  }
-
-  if (analysis.manualStats.away.xgForLast5 > 0) {
-    expectedAwayGoals = expectedAwayGoals * 0.7 + averages.away.xgForAvg * 0.3;
-  }
-
-  const expectedCorners =
-    (averages.home.cornersForAvg +
-      averages.away.cornersForAvg +
-      averages.home.cornersAgainstAvg +
-      averages.away.cornersAgainstAvg) /
-    2;
-  const expectedCards = (averages.home.cardsForAvg + averages.away.cardsForAvg) / 2;
-  const autoConfidence = calculateAutoConfidence(analysis);
+  const maxPositiveEdge = Math.max(
+    0,
+    ...markets.map((market) => (market.edge !== null && market.edge > 0 ? market.edge : 0)),
+  );
+  const dataCompleteness = calculateDataCompleteness(analysis);
+  const autoRiskLevel = calculateAutoRiskLevel(analysis, modelProbabilities, dataCompleteness, maxPositiveEdge);
+  const effectiveRiskLevel = analysis.settings.riskLevel === "auto" ? autoRiskLevel : analysis.settings.riskLevel;
+  const autoConfidence = calculateAutoConfidence(analysis, effectiveRiskLevel, dataCompleteness);
   const manualConfidence = safeNumber(analysis.settings.confidence);
-  const confidence = manualConfidence > 0 ? clamp(manualConfidence, 1, 100) : autoConfidence;
+  const confidence = manualConfidence !== null ? clamp(manualConfidence, 1, 100) : autoConfidence;
 
   return {
     averages,
-    expectedHomeGoals,
-    expectedAwayGoals,
-    totalExpectedGoals: expectedHomeGoals + expectedAwayGoals,
+    expectedHomeGoals: expected.expectedHomeGoals,
+    expectedAwayGoals: expected.expectedAwayGoals,
+    totalExpectedGoals: expected.totalExpectedGoals,
     expectedCorners,
     expectedCards,
-    modelProbabilities: { ...emptyMarketNumbers(), ...modelProbabilities },
+    modelProbabilities,
     impliedProbabilities,
     edge,
     markets,
     bestValueMarket: calculateBestValueMarket(markets),
-    valueIndex: calculateValueIndex(confidence, markets, analysis.settings.riskLevel),
+    valueIndex: calculateValueIndex(confidence, markets, effectiveRiskLevel),
     autoConfidence,
     confidence,
+    autoRiskLevel,
+    effectiveRiskLevel,
+    dataCompleteness,
+    maxPositiveEdge,
   };
 }

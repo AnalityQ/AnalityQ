@@ -7,7 +7,7 @@ export default function AnalizyPage() {
       <SectionHeader
         eyebrow="Raporty publiczne"
         title="Analizy meczów"
-        description="Publiczny widok pokazuje wyłącznie raporty dodane przez admina i oznaczone jako published."
+        description="Publiczny widok pokazuje wyłącznie raporty oznaczone jako opublikowane. Szkice, archiwum i puste sloty pozostają ukryte."
       />
       <PublicAnalysisList />
     </section>

@@ -8,7 +8,7 @@ export function PremiumLockCard({ title, text }: PremiumLockCardProps) {
     <div className="premium-lock-card">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-amber-100">Premium insight</p>
+          <p className="text-sm font-semibold text-amber-100">Sekcja premium</p>
           <h3 className="mt-2 text-xl font-black text-white">{title}</h3>
         </div>
         <span className="lock-mark" aria-hidden="true">

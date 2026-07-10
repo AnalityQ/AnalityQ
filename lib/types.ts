@@ -1,8 +1,10 @@
 export type PublicationStatus = "draft" | "published" | "archived";
 export type AccessStatus = "free" | "premium";
 export type DataLevel = "basic" | "advanced";
-export type RiskLevel = "low" | "medium" | "high";
+export type RiskLevel = "auto" | "low" | "medium" | "high";
+export type EffectiveRiskLevel = Exclude<RiskLevel, "auto">;
 export type SourceMode = "manual";
+export type NumericValue = number | null;
 
 export type MarketKey =
   | "homeWin"
@@ -18,21 +20,21 @@ export type MarketKey =
   | "cardsUnder35";
 
 export type TeamManualStats = {
-  goalsForLast5: number;
-  goalsAgainstLast5: number;
-  cornersForLast5: number;
-  cornersAgainstLast5: number;
-  cardsForLast5: number;
-  cardsAgainstLast5: number;
-  shotsForLast5: number;
-  shotsAgainstLast5: number;
-  xgForLast5: number;
-  xgAgainstLast5: number;
+  goalsForLast5: NumericValue;
+  goalsAgainstLast5: NumericValue;
+  cornersForLast5: NumericValue;
+  cornersAgainstLast5: NumericValue;
+  cardsForLast5: NumericValue;
+  cardsAgainstLast5: NumericValue;
+  shotsForLast5: NumericValue;
+  shotsAgainstLast5: NumericValue;
+  xgForLast5: NumericValue;
+  xgAgainstLast5: NumericValue;
   formLast5: string;
 };
 
-export type MarketNumbers = Record<MarketKey, number>;
-export type UserProbabilities = Partial<Record<MarketKey, number>>;
+export type MarketNumbers = Record<MarketKey, NumericValue>;
+export type UserProbabilities = Partial<Record<MarketKey, NumericValue>>;
 
 export type AnalysisBasic = {
   league: string;
@@ -48,7 +50,7 @@ export type AnalysisBasic = {
 
 export type AnalysisSettings = {
   riskLevel: RiskLevel;
-  confidence: number;
+  confidence: NumericValue;
   riskNote: string;
 };
 
@@ -97,28 +99,36 @@ export type MatchAnalysisRecord = {
 };
 
 export type TeamAverages = {
-  goalsForAvg: number;
-  goalsAgainstAvg: number;
-  cornersForAvg: number;
-  cornersAgainstAvg: number;
-  cardsForAvg: number;
-  cardsAgainstAvg: number;
-  shotsForAvg: number;
-  shotsAgainstAvg: number;
-  xgForAvg: number;
-  xgAgainstAvg: number;
+  goalsForAvg: NumericValue;
+  goalsAgainstAvg: NumericValue;
+  cornersForAvg: NumericValue;
+  cornersAgainstAvg: NumericValue;
+  cardsForAvg: NumericValue;
+  cardsAgainstAvg: NumericValue;
+  shotsForAvg: NumericValue;
+  shotsAgainstAvg: NumericValue;
+  xgForAvg: NumericValue;
+  xgAgainstAvg: NumericValue;
 };
 
 export type MarketEdge = {
   key: MarketKey;
   label: string;
-  odds: number;
-  implied: number | null;
-  model: number;
-  user: number | null;
-  used: number;
-  edge: number | null;
+  odds: NumericValue;
+  implied: NumericValue;
+  model: NumericValue;
+  user: NumericValue;
+  used: NumericValue;
+  edge: NumericValue;
   status: string;
+};
+
+export type DataCompleteness = {
+  filled: number;
+  total: number;
+  missing: number;
+  ratio: number;
+  missingCritical: boolean;
 };
 
 export type FullReportMetrics = {
@@ -126,17 +136,21 @@ export type FullReportMetrics = {
     home: TeamAverages;
     away: TeamAverages;
   };
-  expectedHomeGoals: number;
-  expectedAwayGoals: number;
-  totalExpectedGoals: number;
-  expectedCorners: number;
-  expectedCards: number;
+  expectedHomeGoals: NumericValue;
+  expectedAwayGoals: NumericValue;
+  totalExpectedGoals: NumericValue;
+  expectedCorners: NumericValue;
+  expectedCards: NumericValue;
   modelProbabilities: MarketNumbers;
-  impliedProbabilities: Record<MarketKey, number | null>;
-  edge: Record<MarketKey, number | null>;
+  impliedProbabilities: Record<MarketKey, NumericValue>;
+  edge: Record<MarketKey, NumericValue>;
   markets: MarketEdge[];
   bestValueMarket: string;
   valueIndex: number;
   autoConfidence: number;
   confidence: number;
+  autoRiskLevel: EffectiveRiskLevel;
+  effectiveRiskLevel: EffectiveRiskLevel;
+  dataCompleteness: DataCompleteness;
+  maxPositiveEdge: number;
 };

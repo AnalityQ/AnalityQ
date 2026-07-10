@@ -10,8 +10,8 @@ export function Footer() {
           <div>
             <Logo href="" />
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">
-              AI Sports Analytics dla raportów meczowych, trendów, ryzyka i
-              scenariuszy opartych o dane.
+              Sportowe raporty statystyczne, prawdopodobieństwa modelowe, edge, ryzyko i scenariusze
+              spotkania w jednym przejrzystym produkcie.
             </p>
             <p className="mt-5 max-w-3xl rounded-xl border border-cyan-200/15 bg-cyan-200/[0.04] p-4 text-xs leading-6 text-slate-400">
               {disclaimer}

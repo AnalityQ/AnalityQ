@@ -2,10 +2,10 @@ import { RiskBadge } from "./Badges";
 import { ValueIndexCard } from "./ValueIndexCard";
 
 const trendRows = [
-  ["Implied %", "auto", "z kursów ręcznych"],
-  ["Model %", "auto", "z danych last5"],
-  ["Edge", "auto", "użyte % minus implied %"],
-  ["Watchlist", "auto", "Value Index 65+"],
+  ["implied probability", "auto", "prawdopodobieństwo wynikające z kursu"],
+  ["Model %", "auto", "z danych ostatnich 5 meczów"],
+  ["edge", "auto", "przewaga modelu nad kursem"],
+  ["Watchlista", "auto", "Value Index 65+"],
 ];
 
 export function HeroDashboard() {
@@ -14,11 +14,11 @@ export function HeroDashboard() {
       <div className="scan-line" aria-hidden="true" />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="eyebrow">Live workflow</p>
+          <p className="eyebrow">Podgląd raportu</p>
           <h2 className="mt-3 text-2xl font-black text-white md:text-3xl">
-            Panel raportu meczowego
+            Panel analityczny meczu
           </h2>
-          <p className="mt-2 text-sm text-slate-400">Manual data · localStorage · admin slots</p>
+          <p className="mt-2 text-sm text-slate-400">Dane ręczne · Supabase · raport publiczny</p>
         </div>
         <RiskBadge level="medium" />
       </div>
@@ -26,14 +26,14 @@ export function HeroDashboard() {
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <ValueIndexCard
           value={68}
-          description="Przykładowy stan kalkulatora: confidence, edge i ryzyko składają się na Value Index."
+          description="Przykładowy stan kalkulatora: edge, pewność analizy i ryzyko składają się na Value Index."
         />
 
         <div className="glass-card p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-400">Confidence</p>
-              <p className="mt-1 text-3xl font-black text-white">auto / manual</p>
+              <p className="text-sm text-slate-400">Pewność analizy</p>
+              <p className="mt-1 text-3xl font-black text-white">auto / ręczna</p>
             </div>
             <div className="rounded-full border border-cyan-200/25 bg-cyan-200/10 px-4 py-2 text-sm font-bold text-cyan-100">
               model pomocniczy

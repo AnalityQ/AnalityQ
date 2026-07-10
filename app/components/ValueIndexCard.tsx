@@ -7,7 +7,7 @@ type ValueIndexCardProps = {
 export function ValueIndexCard({
   value,
   label = "Value Index",
-  description = "Ocena jakości sygnału analitycznego z uwzględnieniem edge, confidence i ryzyka.",
+  description = "Ocena jakości sygnału analitycznego z uwzględnieniem edge, pewności analizy i ryzyka.",
 }: ValueIndexCardProps) {
   const percent = Math.min(100, Math.max(0, value));
 
