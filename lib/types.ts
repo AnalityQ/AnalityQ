@@ -3,7 +3,7 @@ export type AccessStatus = "free" | "premium";
 export type DataLevel = "basic" | "advanced";
 export type RiskLevel = "auto" | "low" | "medium" | "high";
 export type EffectiveRiskLevel = Exclude<RiskLevel, "auto">;
-export type SourceMode = "manual";
+export type SourceMode = "manual" | "api" | "mixed";
 export type NumericValue = number | null;
 
 export type MarketKey =
@@ -32,6 +32,8 @@ export type TeamManualStats = {
   xgAgainstLast5: NumericValue;
   formLast5: string;
 };
+
+export type AnalysisStatCoverage = Partial<Record<keyof Omit<TeamManualStats, "formLast5">, number>>;
 
 export type MarketNumbers = Record<MarketKey, NumericValue>;
 export type UserProbabilities = Partial<Record<MarketKey, NumericValue>>;
@@ -78,6 +80,21 @@ export type PremiumSections = {
   lineupsAdvanced: string;
 };
 
+export type AnalysisDataSource = {
+  provider: "API-Football";
+  fixtureId: number | null;
+  homeTeamId: number | null;
+  awayTeamId: number | null;
+  fetchedAt: string | null;
+  includedHomeFixtures: number[];
+  includedAwayFixtures: number[];
+  warnings: string[];
+  coverage?: {
+    home: AnalysisStatCoverage;
+    away: AnalysisStatCoverage;
+  };
+};
+
 export type MatchAnalysisRecord = {
   id: string;
   slotNumber: number;
@@ -85,6 +102,7 @@ export type MatchAnalysisRecord = {
   createdAt: string;
   updatedAt: string;
   sourceMode: SourceMode;
+  dataSource: AnalysisDataSource | null;
   publicationStatus: PublicationStatus;
   basic: AnalysisBasic;
   manualStats: {
@@ -128,6 +146,15 @@ export type DataCompleteness = {
   total: number;
   missing: number;
   ratio: number;
+  percent: number;
+  status: "Niska kompletność" | "Podstawowe dane" | "Dobra kompletność" | "Kompletne dane";
+  breakdown: {
+    match: number;
+    home: number;
+    away: number;
+    odds: number;
+    lineups: number;
+  };
   missingCritical: boolean;
 };
 
@@ -146,7 +173,7 @@ export type FullReportMetrics = {
   edge: Record<MarketKey, NumericValue>;
   markets: MarketEdge[];
   bestValueMarket: string;
-  valueIndex: number;
+  valueIndex: NumericValue;
   autoConfidence: number;
   confidence: number;
   autoRiskLevel: EffectiveRiskLevel;

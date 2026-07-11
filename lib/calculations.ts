@@ -9,20 +9,21 @@ import type {
   NumericValue,
   TeamAverages,
   TeamManualStats,
+  AnalysisStatCoverage,
 } from "./types";
 
 export const marketDefinitions: Array<{ key: MarketKey; label: string }> = [
   { key: "homeWin", label: "1" },
   { key: "draw", label: "X" },
   { key: "awayWin", label: "2" },
-  { key: "over25", label: "over 2.5" },
-  { key: "under25", label: "under 2.5" },
-  { key: "bttsYes", label: "BTTS tak" },
-  { key: "bttsNo", label: "BTTS nie" },
-  { key: "cornersOver85", label: "rożne over 8.5" },
-  { key: "cornersUnder85", label: "rożne under 8.5" },
-  { key: "cardsOver35", label: "kartki over 3.5" },
-  { key: "cardsUnder35", label: "kartki under 3.5" },
+  { key: "over25", label: "Powyżej 2,5 gola" },
+  { key: "under25", label: "Poniżej 2,5 gola" },
+  { key: "bttsYes", label: "Obie drużyny strzelą — tak" },
+  { key: "bttsNo", label: "Obie drużyny strzelą — nie" },
+  { key: "cornersOver85", label: "Rzuty rożne powyżej 8,5" },
+  { key: "cornersUnder85", label: "Rzuty rożne poniżej 8,5" },
+  { key: "cardsOver35", label: "Kartki powyżej 3,5" },
+  { key: "cardsUnder35", label: "Kartki poniżej 3,5" },
 ];
 
 export const statNumberKeys: Array<keyof Omit<TeamManualStats, "formLast5">> = [
@@ -93,9 +94,9 @@ export function normalizePercentages(values: number[]) {
   return values.map((value) => (numberOrZero(value) / total) * 100);
 }
 
-function avg(value: NumericValue): NumericValue {
+function avg(value: NumericValue, sampleSize = 5): NumericValue {
   const parsed = safeNumber(value);
-  return parsed === null ? null : parsed / 5;
+  return parsed === null || sampleSize <= 0 ? null : parsed / sampleSize;
 }
 
 function meanAvailable(values: NumericValue[]): NumericValue {
@@ -104,33 +105,30 @@ function meanAvailable(values: NumericValue[]): NumericValue {
   return available.reduce((sum, value) => sum + value, 0) / available.length;
 }
 
-function hasAny(values: NumericValue[]) {
-  return values.some((value) => value !== null);
-}
-
 function hasAll(values: NumericValue[]) {
   return values.every((value) => value !== null);
 }
 
-function calculateTeamAverages(stats: TeamManualStats): TeamAverages {
+function calculateTeamAverages(stats: TeamManualStats, coverage?: AnalysisStatCoverage): TeamAverages {
+  const sample = (key: keyof AnalysisStatCoverage) => coverage?.[key] ?? 5;
   return {
-    goalsForAvg: avg(stats.goalsForLast5),
-    goalsAgainstAvg: avg(stats.goalsAgainstLast5),
-    cornersForAvg: avg(stats.cornersForLast5),
-    cornersAgainstAvg: avg(stats.cornersAgainstLast5),
-    cardsForAvg: avg(stats.cardsForLast5),
-    cardsAgainstAvg: avg(stats.cardsAgainstLast5),
-    shotsForAvg: avg(stats.shotsForLast5),
-    shotsAgainstAvg: avg(stats.shotsAgainstLast5),
-    xgForAvg: avg(stats.xgForLast5),
-    xgAgainstAvg: avg(stats.xgAgainstLast5),
+    goalsForAvg: avg(stats.goalsForLast5, sample("goalsForLast5")),
+    goalsAgainstAvg: avg(stats.goalsAgainstLast5, sample("goalsAgainstLast5")),
+    cornersForAvg: avg(stats.cornersForLast5, sample("cornersForLast5")),
+    cornersAgainstAvg: avg(stats.cornersAgainstLast5, sample("cornersAgainstLast5")),
+    cardsForAvg: avg(stats.cardsForLast5, sample("cardsForLast5")),
+    cardsAgainstAvg: avg(stats.cardsAgainstLast5, sample("cardsAgainstLast5")),
+    shotsForAvg: avg(stats.shotsForLast5, sample("shotsForLast5")),
+    shotsAgainstAvg: avg(stats.shotsAgainstLast5, sample("shotsAgainstLast5")),
+    xgForAvg: avg(stats.xgForLast5, sample("xgForLast5")),
+    xgAgainstAvg: avg(stats.xgAgainstLast5, sample("xgAgainstLast5")),
   };
 }
 
 export function calculateAverages(analysis: MatchAnalysisRecord) {
   return {
-    home: calculateTeamAverages(analysis.manualStats.home),
-    away: calculateTeamAverages(analysis.manualStats.away),
+    home: calculateTeamAverages(analysis.manualStats.home, analysis.dataSource?.coverage?.home),
+    away: calculateTeamAverages(analysis.manualStats.away, analysis.dataSource?.coverage?.away),
   };
 }
 
@@ -201,15 +199,11 @@ export function calculateModelProbabilities(analysis: MatchAnalysisRecord): Mark
   }
 
   if (
-    hasAny([
+    hasAll([
       home.goalsForAvg,
       home.goalsAgainstAvg,
-      home.shotsForAvg,
-      home.cornersForAvg,
       away.goalsForAvg,
       away.goalsAgainstAvg,
-      away.shotsForAvg,
-      away.cornersForAvg,
     ])
   ) {
     let homeStrength =
@@ -290,10 +284,10 @@ export function calculateEdges(
 
 export function getEdgeStatus(edge: NumericValue) {
   if (edge === null) return "brak danych";
-  if (edge > 8) return "wysoki value signal";
+  if (edge > 8) return "silny sygnał value";
   if (edge >= 3) return "do obserwacji";
   if (edge >= 0) return "neutralnie";
-  return "brak value";
+  return "brak sygnału value";
 }
 
 export function calculateBestValueMarket(markets: MarketEdge[]) {
@@ -305,14 +299,63 @@ export function calculateBestValueMarket(markets: MarketEdge[]) {
 }
 
 export function calculateDataCompleteness(analysis: MatchAnalysisRecord): DataCompleteness {
-  const statValues = [
+  const basicValues = [
+    analysis.basic.league,
+    analysis.basic.country,
+    analysis.basic.homeTeam,
+    analysis.basic.awayTeam,
+    analysis.basic.kickoff,
+    analysis.basic.venue,
+    analysis.basic.fotmobUrl,
+  ];
+  const homeValues = [
     ...statNumberKeys.map((key) => analysis.manualStats.home[key]),
+    analysis.manualStats.home.formLast5,
+  ];
+  const awayValues = [
     ...statNumberKeys.map((key) => analysis.manualStats.away[key]),
+    analysis.manualStats.away.formLast5,
   ];
   const oddsValues = marketDefinitions.map((market) => analysis.odds[market.key]);
-  const values = [...statValues, ...oddsValues];
-  const filled = values.filter((value) => safeNumber(value) !== null).length;
+  const lineupValues = [analysis.notes.lineupsNotes, analysis.notes.injuriesNotes];
+  const isFilled = (value: unknown) =>
+    typeof value === "string" ? value.trim().length > 0 : safeNumber(value) !== null;
+  const ratioFor = (values: unknown[]) => values.filter(isFilled).length / values.length;
+  const statsRatio = (team: "home" | "away", values: unknown[]) => {
+    const coverage = analysis.dataSource?.coverage?.[team];
+    if (!coverage) return ratioFor(values);
+    const numericScore = statNumberKeys.reduce((sum, key) => {
+      if (!isFilled(analysis.manualStats[team][key])) return sum;
+      return sum + Math.min(5, Math.max(0, coverage[key] ?? 5)) / 5;
+    }, 0);
+    const formScore = analysis.manualStats[team].formLast5.trim() ? 1 : 0;
+    return (numericScore + formScore) / (statNumberKeys.length + 1);
+  };
+  const breakdown = {
+    match: ratioFor(basicValues),
+    home: statsRatio("home", homeValues),
+    away: statsRatio("away", awayValues),
+    odds: ratioFor(oddsValues),
+    lineups: ratioFor(lineupValues),
+  };
+  const ratio =
+    breakdown.match * 0.15 +
+    breakdown.home * 0.25 +
+    breakdown.away * 0.25 +
+    breakdown.odds * 0.25 +
+    breakdown.lineups * 0.1;
+  const values = [...basicValues, ...homeValues, ...awayValues, ...oddsValues, ...lineupValues];
+  const filled = values.filter(isFilled).length;
   const total = values.length;
+  const percent = Math.round(ratio * 100);
+  const status =
+    percent < 40
+      ? "Niska kompletność"
+      : percent < 70
+        ? "Podstawowe dane"
+        : percent < 90
+          ? "Dobra kompletność"
+          : "Kompletne dane";
   const missingCritical =
     (!hasNumber(analysis.manualStats.home.shotsForLast5) && !hasNumber(analysis.manualStats.home.xgForLast5)) ||
     (!hasNumber(analysis.manualStats.away.shotsForLast5) && !hasNumber(analysis.manualStats.away.xgForLast5)) ||
@@ -324,7 +367,10 @@ export function calculateDataCompleteness(analysis: MatchAnalysisRecord): DataCo
     filled,
     total,
     missing: total - filled,
-    ratio: total === 0 ? 0 : filled / total,
+    ratio,
+    percent,
+    status,
+    breakdown,
     missingCritical,
   };
 }
@@ -356,7 +402,7 @@ export function calculateAutoConfidence(
   effectiveRiskLevel: EffectiveRiskLevel,
   dataCompleteness: DataCompleteness,
 ) {
-  let confidence = 55;
+  let confidence = 30 + dataCompleteness.ratio * 50;
 
   if (hasNumber(analysis.manualStats.home.xgForLast5) || hasNumber(analysis.manualStats.away.xgForLast5)) {
     confidence += 5;
@@ -370,8 +416,8 @@ export function calculateAutoConfidence(
     confidence += 5;
   }
 
-  if (dataCompleteness.ratio >= 0.85) confidence += 5;
-  if (dataCompleteness.ratio < 0.55) confidence -= 10;
+  if (dataCompleteness.ratio >= 0.9) confidence += 5;
+  if (dataCompleteness.missingCritical) confidence -= 8;
 
   if (effectiveRiskLevel === "high") {
     confidence -= 10;
@@ -379,17 +425,24 @@ export function calculateAutoConfidence(
     confidence -= 5;
   }
 
-  return clamp(confidence, 30, 85);
+  return clamp(confidence, 20, 90);
 }
 
 export function calculateValueIndex(
   confidence: number,
   markets: MarketEdge[],
   riskLevel: EffectiveRiskLevel,
-) {
+  dataCompleteness: DataCompleteness,
+): NumericValue {
+  const comparableMarkets = markets.filter(
+    (market) => market.used !== null && market.implied !== null && market.edge !== null,
+  );
+  if (comparableMarkets.length === 0 || dataCompleteness.missingCritical || dataCompleteness.ratio < 0.4) {
+    return null;
+  }
   const maxPositiveEdge = Math.max(
     0,
-    ...markets.map((market) => (market.edge !== null && market.edge > 0 ? market.edge : 0)),
+    ...comparableMarkets.map((market) => (market.edge !== null && market.edge > 0 ? market.edge : 0)),
   );
   const riskPenalty = riskLevel === "low" ? 0 : riskLevel === "medium" ? 10 : 22;
   const value =
@@ -446,7 +499,7 @@ export function calculateFullReportMetrics(analysis: MatchAnalysisRecord): FullR
     edge,
     markets,
     bestValueMarket: calculateBestValueMarket(markets),
-    valueIndex: calculateValueIndex(confidence, markets, effectiveRiskLevel),
+    valueIndex: calculateValueIndex(confidence, markets, effectiveRiskLevel, dataCompleteness),
     autoConfidence,
     confidence,
     autoRiskLevel,

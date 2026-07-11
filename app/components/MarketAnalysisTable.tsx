@@ -22,10 +22,10 @@ export function MarketAnalysisTable({ metrics }: { metrics: FullReportMetrics })
           <tr className="border-b border-white/10 text-slate-300">
             <th className="p-4 font-bold">Rynek</th>
             <th className="p-4 font-bold">Kurs</th>
-            <th className="p-4 font-bold">Implied %</th>
-            <th className="p-4 font-bold">Model %</th>
+            <th className="p-4 font-bold">Prawdopodobieństwo z kursu</th>
+            <th className="p-4 font-bold">Prawdopodobieństwo modelu</th>
             <th className="p-4 font-bold">Korekta ręczna %</th>
-            <th className="p-4 font-bold">Użyte %</th>
+            <th className="p-4 font-bold">Użyte prawdopodobieństwo</th>
             <th className="p-4 font-bold">Edge</th>
             <th className="p-4 font-bold">Status</th>
           </tr>
@@ -48,8 +48,8 @@ export function MarketAnalysisTable({ metrics }: { metrics: FullReportMetrics })
         </tbody>
       </table>
       <div className="border-t border-white/10 px-4 py-3 text-xs leading-5 text-slate-400">
-        Implied probability to prawdopodobieństwo wynikające z kursu. Edge to przewaga modelu nad
-        implied probability dla danego rynku.
+        Prawdopodobieństwo z kursu wynika bezpośrednio z jego wartości. Edge to przewaga
+        prawdopodobieństwa modelowego nad prawdopodobieństwem z kursu dla danego rynku.
       </div>
     </div>
   );

@@ -1,15 +1,17 @@
 "use client";
 
 import { supabase, supabaseMissingConfigMessage } from "./supabase";
-import { buildAnalysisSlug, normalizeAnalysis, slugify } from "./storage";
+import { buildAnalysisSlug, createEmptyAnalysis, getNextFreeSlot, normalizeAnalysis, slugify } from "./storage";
 import type {
   AnalysisBasic,
+  AnalysisDataSource,
   AnalysisNotes,
   AnalysisSettings,
   MarketNumbers,
   MatchAnalysisRecord,
   PremiumSections,
   PublicationStatus,
+  SourceMode,
   UserProbabilities,
 } from "./types";
 
@@ -23,7 +25,8 @@ type AnalysisRow = {
   slug: string;
   created_at: string | null;
   updated_at: string | null;
-  source_mode: "manual" | string | null;
+  source_mode: SourceMode | string | null;
+  data_source: AnalysisDataSource | null;
   publication_status: PublicationStatus | string | null;
   basic: Partial<AnalysisBasic> | null;
   manual_stats: Partial<MatchAnalysisRecord["manualStats"]> | null;
@@ -37,7 +40,8 @@ type AnalysisRow = {
 type AnalysisInsertPayload = {
   slot_number: number;
   slug: string;
-  source_mode: "manual";
+  source_mode: SourceMode;
+  data_source: AnalysisDataSource | null;
   publication_status: PublicationStatus;
   basic: AnalysisBasic;
   manual_stats: MatchAnalysisRecord["manualStats"];
@@ -88,7 +92,8 @@ function rowToAnalysis(row: AnalysisRow): MatchAnalysisRecord {
     slug: row.slug,
     createdAt: row.created_at || now,
     updatedAt: row.updated_at || row.created_at || now,
-    sourceMode: "manual",
+    sourceMode: (row.source_mode || "manual") as SourceMode,
+    dataSource: row.data_source || null,
     publicationStatus: (row.publication_status || "draft") as PublicationStatus,
     basic: row.basic || {},
     manualStats: row.manual_stats || {},
@@ -101,6 +106,8 @@ function rowToAnalysis(row: AnalysisRow): MatchAnalysisRecord {
 
   const normalized = normalizeAnalysis(record, [record]);
   normalized.slug = row.slug;
+  normalized.createdAt = row.created_at || now;
+  normalized.updatedAt = row.updated_at || row.created_at || now;
   return normalized;
 }
 
@@ -108,7 +115,8 @@ function toPayload(analysis: MatchAnalysisRecord): AnalysisInsertPayload {
   return {
     slot_number: analysis.slotNumber,
     slug: analysis.slug,
-    source_mode: "manual",
+    source_mode: analysis.sourceMode,
+    data_source: analysis.dataSource,
     publication_status: analysis.publicationStatus,
     basic: analysis.basic,
     manual_stats: analysis.manualStats,
@@ -246,6 +254,52 @@ export async function unpublishAnalysis(id: string) {
 
 export async function archiveAnalysis(id: string) {
   return updatePublicationStatus(id, "archived");
+}
+
+export async function duplicateAnalysis(id: string) {
+  const existing = await fetchExistingAnalyses();
+  const source = existing.find((item) => item.id === id);
+  if (!source) throw new SupabaseDatabaseError("Nie znaleziono analizy do zduplikowania.");
+
+  const slotNumber = getNextFreeSlot(existing);
+  if (!slotNumber) throw new SupabaseDatabaseError("Brak wolnego slotu na nowy szkic.");
+
+  const empty = createEmptyAnalysis(slotNumber);
+  const duplicate: MatchAnalysisRecord = {
+    ...source,
+    id: empty.id,
+    slotNumber,
+    slug: empty.slug,
+    createdAt: "",
+    updatedAt: "",
+    publicationStatus: "draft",
+    basic: { ...source.basic },
+    manualStats: {
+      home: { ...source.manualStats.home },
+      away: { ...source.manualStats.away },
+    },
+    odds: { ...source.odds },
+    userProbabilities: { ...source.userProbabilities },
+    settings: { ...source.settings },
+    notes: { ...source.notes },
+    premiumSections: { ...source.premiumSections },
+    dataSource: source.dataSource
+      ? {
+          ...source.dataSource,
+          includedHomeFixtures: [...source.dataSource.includedHomeFixtures],
+          includedAwayFixtures: [...source.dataSource.includedAwayFixtures],
+          warnings: [...source.dataSource.warnings],
+          coverage: source.dataSource.coverage
+            ? {
+                home: { ...source.dataSource.coverage.home },
+                away: { ...source.dataSource.coverage.away },
+              }
+            : undefined,
+        }
+      : null,
+  };
+
+  return createAnalysis(duplicate);
 }
 
 async function updatePublicationStatus(id: string, publicationStatus: PublicationStatus) {

@@ -24,7 +24,7 @@ export const analysisAreas = [
   {
     title: "Gole i xG",
     mark: "xG",
-    description: "Bramki, expected goals i szacowany potencjał bramkowy spotkania.",
+    description: "Bramki, oczekiwane gole i szacowany potencjał bramkowy spotkania.",
   },
   {
     title: "Rzuty rożne",
@@ -37,7 +37,7 @@ export const analysisAreas = [
     description: "Średnie kartek oraz profil spotkania pod kątem przerywania gry.",
   },
   {
-    title: "Kursy i implied probability",
+    title: "Kursy i prawdopodobieństwo z kursu",
     mark: "IP",
     description: "Kursy wpisywane ręcznie i prawdopodobieństwo wynikające z kursu.",
   },
@@ -65,11 +65,11 @@ export const pipelineSteps = [
   },
   {
     title: "Obliczenia statystyczne",
-    text: "AnalityQ liczy średnie z ostatnich pięciu meczów, expected goals, rożne, kartki i prawdopodobieństwa modelowe.",
+    text: "AnalityQ liczy średnie z ostatnich pięciu meczów, oczekiwane gole, rożne, kartki i prawdopodobieństwa modelowe.",
   },
   {
     title: "Porównanie z kursem",
-    text: "Kursy są przeliczane na implied probability, a model porównuje je z użytym prawdopodobieństwem i wylicza edge.",
+    text: "Kursy są przeliczane na prawdopodobieństwo, a model porównuje je z prawdopodobieństwem statystycznym i wylicza edge.",
   },
   {
     title: "Ocena ryzyka",
@@ -109,7 +109,7 @@ export const pricingPlans = [
     features: [
       "Podsumowanie modelu i forma drużyn",
       "Średnie z ostatnich 5 meczów",
-      "Tabela kursów, implied probability i edge",
+      "Tabela kursów, prawdopodobieństwo z kursu i edge",
       "Podstawowy Value Index",
     ],
   },
@@ -135,7 +135,7 @@ export const pricingPlans = [
     features: [
       "20 slotów analiz",
       "Kopia zapasowa JSON",
-      "Watchlista sygnałów value",
+      "Lista obserwacyjna sygnałów value",
       "Archiwum raportów",
     ],
   },
@@ -169,7 +169,7 @@ export const faqItems = [
       "Value Index to syntetyczna ocena jakości sygnału analitycznego. Łączy pewność analizy, edge — przewagę modelu nad kursem, poziom ryzyka i kompletność danych wejściowych.",
   },
   {
-    question: "Czym jest implied probability?",
+    question: "Czym jest prawdopodobieństwo z kursu?",
     answer:
       "Implied probability to prawdopodobieństwo wynikające z kursu. AnalityQ porównuje je z prawdopodobieństwem modelowym i wylicza edge.",
   },

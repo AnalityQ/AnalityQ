@@ -3,6 +3,7 @@ import { calculateFullReportMetrics } from "@/lib/calculations";
 import { generateModelSummary } from "@/lib/reportText";
 import type { MatchAnalysisRecord } from "@/lib/types";
 import { ConfidenceBadge, getRiskLabel, RiskBadge, StatusBadge } from "./Badges";
+import { DataCompletenessBar } from "./DataCompletenessBar";
 
 function formatKickoff(value: string) {
   if (!value) return "brak daty";
@@ -40,10 +41,10 @@ export function MatchCard({ match }: { match: MatchAnalysisRecord }) {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-amber-200/15 bg-amber-200/[0.06] p-3">
           <p className="text-xs text-slate-400">Value Index</p>
-          <p className="mt-1 text-xl font-black text-amber-100">{Math.round(metrics.valueIndex)}</p>
+          <p className="mt-1 text-xl font-black text-amber-100">{metrics.valueIndex === null ? "—" : Math.round(metrics.valueIndex)}</p>
         </div>
         <div className="rounded-xl border border-cyan-200/15 bg-cyan-200/[0.05] p-3">
           <p className="text-xs text-slate-400">Poziom ryzyka</p>
@@ -53,7 +54,13 @@ export function MatchCard({ match }: { match: MatchAnalysisRecord }) {
           <p className="text-xs text-slate-400">Pewność analizy</p>
           <p className="mt-1 text-xl font-black text-cyan-100">{Math.round(metrics.confidence)}%</p>
         </div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+          <p className="text-xs text-slate-400">Kompletność</p>
+          <p className="mt-1 text-xl font-black text-white">{metrics.dataCompleteness.percent}%</p>
+        </div>
       </div>
+
+      <div className="mt-4"><DataCompletenessBar completeness={metrics.dataCompleteness} compact /></div>
 
       <div className="mt-5 flex flex-wrap gap-2">
         <RiskBadge level={metrics.effectiveRiskLevel} />

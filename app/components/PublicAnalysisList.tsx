@@ -39,6 +39,7 @@ export function PublicAnalysisList() {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [league, setLeague] = useState("");
+  const [sort, setSort] = useState("upcoming");
   const [matches, setMatches] = useState<MatchAnalysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -82,12 +83,21 @@ export function PublicAnalysisList() {
         filter === "all" ||
         match.basic.status === filter ||
         metrics.effectiveRiskLevel === filter ||
-        (filter === "value60" && metrics.valueIndex >= 60) ||
+        (filter === "value60" && metrics.valueIndex !== null && metrics.valueIndex >= 60) ||
         (filter === "today" && isToday(match.basic.kickoff));
 
       return matchesQuery && matchesLeague && matchesFilter;
+    }).sort((a, b) => {
+      const aMetrics = calculateFullReportMetrics(a);
+      const bMetrics = calculateFullReportMetrics(b);
+      if (sort === "value") return (bMetrics.valueIndex ?? -1) - (aMetrics.valueIndex ?? -1);
+      if (sort === "completeness") return bMetrics.dataCompleteness.percent - aMetrics.dataCompleteness.percent;
+      if (sort === "newest") return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      const aTime = a.basic.kickoff ? new Date(a.basic.kickoff).getTime() : Number.MAX_SAFE_INTEGER;
+      const bTime = b.basic.kickoff ? new Date(b.basic.kickoff).getTime() : Number.MAX_SAFE_INTEGER;
+      return aTime - bTime;
     });
-  }, [filter, league, matches, query]);
+  }, [filter, league, matches, query, sort]);
 
   if (loading) {
     return (
@@ -112,7 +122,7 @@ export function PublicAnalysisList() {
   }
 
   const highestValue = matches.reduce((max, match) => {
-    return Math.max(max, calculateFullReportMetrics(match).valueIndex);
+    return Math.max(max, calculateFullReportMetrics(match).valueIndex ?? 0);
   }, 0);
   const lowRiskCount = matches.filter((match) => calculateFullReportMetrics(match).effectiveRiskLevel === "low").length;
   const premiumCount = matches.filter((match) => match.basic.status === "premium").length;
@@ -149,7 +159,7 @@ export function PublicAnalysisList() {
               </button>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[520px]">
+          <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[760px]">
             <input
               className="search-input"
               placeholder="Szukaj drużyny lub ligi"
@@ -157,6 +167,12 @@ export function PublicAnalysisList() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
+            <select className="search-input" value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sortuj analizy">
+              <option value="upcoming">Najbliższe mecze</option>
+              <option value="value">Najwyższy Value Index</option>
+              <option value="completeness">Najwyższa kompletność danych</option>
+              <option value="newest">Najnowsze analizy</option>
+            </select>
             <input
               className="search-input"
               placeholder="Filtruj po lidze"

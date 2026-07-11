@@ -8,6 +8,7 @@ import type {
   NumericValue,
   PublicationStatus,
   RiskLevel,
+  SourceMode,
   TeamManualStats,
 } from "./types";
 
@@ -65,6 +66,7 @@ export function createEmptyAnalysis(slotNumber: number): MatchAnalysisRecord {
     createdAt: now,
     updatedAt: now,
     sourceMode: "manual",
+    dataSource: null,
     publicationStatus: "draft",
     basic: {
       league: "",
@@ -182,7 +184,31 @@ export function normalizeAnalysis(analysis: MatchAnalysisRecord, existing: Match
       ...defaults.premiumSections,
       ...analysis.premiumSections,
     },
-    sourceMode: "manual",
+    sourceMode: (["manual", "api", "mixed"].includes(analysis.sourceMode) ? analysis.sourceMode : "manual") as SourceMode,
+    dataSource: analysis.dataSource
+      ? {
+          provider: "API-Football",
+          fixtureId: normalizeNumber(analysis.dataSource.fixtureId),
+          homeTeamId: normalizeNumber(analysis.dataSource.homeTeamId),
+          awayTeamId: normalizeNumber(analysis.dataSource.awayTeamId),
+          fetchedAt: analysis.dataSource.fetchedAt || null,
+          includedHomeFixtures: Array.isArray(analysis.dataSource.includedHomeFixtures)
+            ? analysis.dataSource.includedHomeFixtures.filter((value): value is number => Number.isInteger(value))
+            : [],
+          includedAwayFixtures: Array.isArray(analysis.dataSource.includedAwayFixtures)
+            ? analysis.dataSource.includedAwayFixtures.filter((value): value is number => Number.isInteger(value))
+            : [],
+          warnings: Array.isArray(analysis.dataSource.warnings)
+            ? analysis.dataSource.warnings.filter((value): value is string => typeof value === "string")
+            : [],
+          coverage: analysis.dataSource.coverage
+            ? {
+                home: { ...analysis.dataSource.coverage.home },
+                away: { ...analysis.dataSource.coverage.away },
+              }
+            : undefined,
+        }
+      : null,
   };
 
   normalized.basic.status = (normalized.basic.status || "free") as AccessStatus;

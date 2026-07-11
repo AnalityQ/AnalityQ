@@ -72,7 +72,7 @@ export default function Home() {
         <SectionHeader
           eyebrow="Zakres analizy"
           title="Co analizuje AnalityQ?"
-          description="Każdy raport łączy dane wejściowe, kursy, implied probability, edge, Value Index i ryzyko meczu."
+          description="Każdy raport łączy dane wejściowe, kursy, prawdopodobieństwo z kursu, edge, Value Index i ryzyko meczu."
           align="center"
         />
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

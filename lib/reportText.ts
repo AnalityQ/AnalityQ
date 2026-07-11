@@ -17,7 +17,7 @@ export function generateKeySignals(match: MatchAnalysisRecord, calculated: FullR
 
   if (calculated.maxPositiveEdge > 8) {
     signals.push(
-      `Najsilniejszy sygnał value pojawia się na rynku ${calculated.bestValueMarket}, gdzie różnica między prawdopodobieństwem użytym przez model a implied probability z kursu jest wyraźna.`,
+      `Najsilniejszy sygnał value pojawia się na rynku ${calculated.bestValueMarket}, gdzie różnica między prawdopodobieństwem użytym przez model a prawdopodobieństwem z kursu jest wyraźna.`,
     );
   } else if (calculated.maxPositiveEdge >= 3) {
     signals.push(
@@ -27,7 +27,7 @@ export function generateKeySignals(match: MatchAnalysisRecord, calculated: FullR
 
   if (calculated.totalExpectedGoals !== null && calculated.totalExpectedGoals > 2.7) {
     signals.push(
-      "Model wskazuje podwyższony potencjał bramkowy. Łączne expected goals przekracza standardowy próg dla meczu o profilu overowym.",
+      "Model wskazuje podwyższony potencjał bramkowy. Łączna wartość oczekiwanych goli przekracza standardowy próg dla meczu o profilu bramkowym.",
     );
   }
 
@@ -66,10 +66,17 @@ export function generateModelSummary(match: MatchAnalysisRecord, calculated: Ful
       ? `Najlepszy sygnał value: ${calculated.bestValueMarket}.`
       : "Model nie wskazuje obecnie wyraźnego dodatniego edge na dostępnych rynkach.";
 
+  const dataSentence = calculated.dataCompleteness.percent >= 90
+    ? "Analiza została przygotowana na podstawie kompletnego zestawu podstawowych statystyk z ostatnich pięciu spotkań."
+    : calculated.dataCompleteness.percent < 70
+      ? "Część danych wejściowych nie została uzupełniona. Wynik modelu należy traktować jako analizę wstępną."
+      : "Zakres danych pozwala na analizę podstawowych sygnałów, ale raport nadal może zyskać po uzupełnieniu brakujących pól.";
+
   return [
-    `Raport dla meczu ${teamLabel(match)} łączy dane wejściowe, kursy, implied probability, edge i poziom ryzyka w jednym modelu pomocniczym.`,
+    `Raport dla meczu ${teamLabel(match)} łączy dane wejściowe, kursy, prawdopodobieństwo z kursu, edge i poziom ryzyka w jednym modelu pomocniczym.`,
     valueSentence,
     `Kompletność danych wejściowych wynosi około ${completeness}%, a bieżąca pewność analizy to ${Math.round(calculated.confidence)}%.`,
+    dataSentence,
     signals[0],
   ].join(" ");
 }
@@ -79,7 +86,7 @@ export function generateScenarioText(match: MatchAnalysisRecord, calculated: Ful
 
   if (calculated.totalExpectedGoals !== null && calculated.totalExpectedGoals > 2.7) {
     scenarios.push(
-      "Scenariusz wyższego tempa bramkowego jest wspierany przez expected goals i profil ofensywny danych wejściowych.",
+      "Scenariusz wyższego tempa bramkowego jest wspierany przez oczekiwane gole i profil ofensywny danych wejściowych.",
     );
   } else if (calculated.totalExpectedGoals !== null) {
     scenarios.push(

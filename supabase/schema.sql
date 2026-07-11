@@ -15,6 +15,7 @@ create table if not exists public.analyses (
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   source_mode text default 'manual',
+  data_source jsonb,
   publication_status text default 'draft',
   basic jsonb,
   manual_stats jsonb,
@@ -29,6 +30,16 @@ create index if not exists analyses_publication_status_idx on public.analyses (p
 create index if not exists analyses_slug_idx on public.analyses (slug);
 create index if not exists analyses_slot_number_idx on public.analyses (slot_number);
 create index if not exists analyses_created_at_idx on public.analyses (created_at);
+
+create table if not exists public.api_cache (
+  cache_key text primary key,
+  payload jsonb not null,
+  expires_at timestamptz not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists api_cache_expires_at_idx on public.api_cache (expires_at);
+alter table public.api_cache enable row level security;
 
 create or replace function public.update_analyses_updated_at()
 returns trigger as $$

@@ -2,10 +2,10 @@ import { RiskBadge } from "./Badges";
 import { ValueIndexCard } from "./ValueIndexCard";
 
 const trendRows = [
-  ["implied probability", "auto", "prawdopodobieństwo wynikające z kursu"],
-  ["Model %", "auto", "z danych ostatnich 5 meczów"],
+  ["Prawdopodobieństwo z kursu", "auto", "wartość wynikająca z kursu"],
+  ["Prawdopodobieństwo modelu", "auto", "z danych ostatnich 5 meczów"],
   ["edge", "auto", "przewaga modelu nad kursem"],
-  ["Watchlista", "auto", "Value Index 65+"],
+  ["Lista obserwacyjna", "auto", "Value Index 65+"],
 ];
 
 export function HeroDashboard() {

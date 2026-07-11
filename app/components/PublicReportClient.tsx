@@ -24,6 +24,8 @@ import { MetricCard } from "./MetricCard";
 import { PremiumLockCard } from "./PremiumLockCard";
 import { PreviewModeToggle } from "./PreviewModeToggle";
 import { ValueIndexCard } from "./ValueIndexCard";
+import { DataCompletenessBar } from "./DataCompletenessBar";
+import { StatisticsComparison } from "./StatisticsComparison";
 
 function formatDate(value: string) {
   if (!value) return "brak daty";
@@ -70,6 +72,10 @@ function TextPanel({ title, text }: { title: string; text: string }) {
       </p>
     </section>
   );
+}
+
+function ProbabilityMetric({ label, value }: { label: string; value: NumericValue }) {
+  return <div className="probability-metric"><span>{label}</span><strong>{value === null ? "—" : `${value.toFixed(1)}%`}</strong></div>;
 }
 
 export function PublicReportClient({ slug }: { slug: string }) {
@@ -194,6 +200,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
             <p className="mt-3 text-sm leading-6 text-slate-300">
               {match.basic.league || "Liga nieuzupełniona"} · {match.basic.country || "kraj nieuzupełniony"} · {formatDate(match.basic.kickoff)}
             </p>
+            <p className="mt-2 text-sm text-slate-400">{match.basic.venue ? `Stadion / miejsce: ${match.basic.venue}` : "Stadion / miejsce: brak danych"}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <StatusBadge status={match.basic.status} />
               <RiskBadge level={metrics.effectiveRiskLevel} />
@@ -230,6 +237,8 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <MetricCard label="Najlepszy sygnał value" value={metrics.bestValueMarket} note="rynek z najwyższym dodatnim edge" />
         </div>
 
+        <div className="mt-5"><DataCompletenessBar completeness={metrics.dataCompleteness} /></div>
+
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <TextPanel title="Podsumowanie modelu" text={modelSummary} />
           <section className="glass-card p-5">
@@ -245,9 +254,9 @@ export function PublicReportClient({ slug }: { slug: string }) {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <MetricCard label="Expected goals gospodarzy" value={formatNumber(metrics.expectedHomeGoals)} note={match.basic.homeTeam || "gospodarz"} tone="cyan" />
-          <MetricCard label="Expected goals gości" value={formatNumber(metrics.expectedAwayGoals)} note={match.basic.awayTeam || "gość"} />
-          <MetricCard label="Łączne expected goals" value={formatNumber(metrics.totalExpectedGoals)} note="suma modelowa" tone="gold" />
+          <MetricCard label="Oczekiwane gole gospodarzy" value={formatNumber(metrics.expectedHomeGoals)} note={match.basic.homeTeam || "gospodarz"} tone="cyan" />
+          <MetricCard label="Oczekiwane gole gości" value={formatNumber(metrics.expectedAwayGoals)} note={match.basic.awayTeam || "gość"} />
+          <MetricCard label="Łączne oczekiwane gole" value={formatNumber(metrics.totalExpectedGoals)} note="suma modelowa" tone="gold" />
           <MetricCard label="Oczekiwane rożne" value={formatNumber(metrics.expectedCorners, 1)} note="łącznie" />
           <MetricCard label="Oczekiwane kartki" value={formatNumber(metrics.expectedCards, 1)} note="łącznie" />
         </div>
@@ -267,16 +276,23 @@ export function PublicReportClient({ slug }: { slug: string }) {
             </div>
           </section>
 
-          <section className="glass-card p-5">
-            <h3 className="text-xl font-black text-white">Wyliczone średnie</h3>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <MetricCard label="Gole gospodarzy" value={formatNumber(metrics.averages.home.goalsForAvg)} note="średnia last5" />
-              <MetricCard label="Gole gości" value={formatNumber(metrics.averages.away.goalsForAvg)} note="średnia last5" />
-              <MetricCard label="Strzały gospodarzy" value={formatNumber(metrics.averages.home.shotsForAvg, 1)} note="średnia last5" />
-              <MetricCard label="Strzały gości" value={formatNumber(metrics.averages.away.shotsForAvg, 1)} note="średnia last5" />
-            </div>
-          </section>
+          <StatisticsComparison match={match} metrics={metrics} />
         </div>
+
+        <section className="mt-8 glass-card p-5">
+          <p className="eyebrow">Model statystyczny</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Analiza prawdopodobieństw</h2>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <ProbabilityMetric label="1 — gospodarz" value={metrics.modelProbabilities.homeWin} />
+            <ProbabilityMetric label="X — remis" value={metrics.modelProbabilities.draw} />
+            <ProbabilityMetric label="2 — gość" value={metrics.modelProbabilities.awayWin} />
+            <ProbabilityMetric label="Powyżej 2,5 gola" value={metrics.modelProbabilities.over25} />
+            <ProbabilityMetric label="Poniżej 2,5 gola" value={metrics.modelProbabilities.under25} />
+            <ProbabilityMetric label="BTTS — tak" value={metrics.modelProbabilities.bttsYes} />
+            <ProbabilityMetric label="Rożne powyżej 8,5" value={metrics.modelProbabilities.cornersOver85} />
+            <ProbabilityMetric label="Kartki powyżej 3,5" value={metrics.modelProbabilities.cardsOver35} />
+          </div>
+        </section>
 
         <section className="mt-8">
           <h2 className="mb-5 text-2xl font-black text-white">Analiza kursów</h2>
@@ -287,6 +303,22 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <TextPanel title="Scenariusze meczu" text={scenarioText} />
           <TextPanel title="Ryzyka" text={riskText} />
         </div>
+
+        <section className="mt-8 rounded-2xl border border-cyan-200/12 bg-cyan-200/[0.035] p-5">
+          <p className="eyebrow">Transparentność raportu</p>
+          <h2 className="mt-2 text-xl font-black text-white">Informacje o danych</h2>
+          {match.dataSource?.provider ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="data-source-item"><span>Źródło danych</span><strong>{match.dataSource.provider}</strong></div>
+              <div className="data-source-item"><span>Ostatnie pobranie</span><strong>{match.dataSource.fetchedAt ? formatDate(match.dataSource.fetchedAt) : "Brak danych"}</strong></div>
+              <div className="data-source-item"><span>Spotkania gospodarzy</span><strong>{match.dataSource.includedHomeFixtures.length}</strong></div>
+              <div className="data-source-item"><span>Spotkania gości</span><strong>{match.dataSource.includedAwayFixtures.length}</strong></div>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm leading-7 text-slate-400">Dane do tej analizy zostały wprowadzone ręcznie przez administratora.</p>
+          )}
+          <p className="mt-4 text-xs leading-6 text-slate-500">Kompletność danych wejściowych: {metrics.dataCompleteness.percent}%. Dane mogą być ręcznie weryfikowane i korygowane przed publikacją.</p>
+        </section>
 
         <section className="mt-8">
           <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -319,6 +351,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
         <p className="mt-8 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-6 text-slate-400">
           {modelDisclaimer}
         </p>
+        <div className="mt-8 flex items-center justify-between gap-4 border-t border-white/10 pt-6"><Logo href="" /><p className="text-right text-xs text-slate-500">Profesjonalny raport statystyczny AnalityQ</p></div>
       </div>
     </section>
   );
