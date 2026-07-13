@@ -18,6 +18,21 @@ function toManualStats(aggregate: AggregatedLastMatches): TeamManualStats {
   };
 }
 
+function toAnalysisCoverage(aggregate: AggregatedLastMatches) {
+  return {
+    goalsForLast5: aggregate.coverage.goals,
+    goalsAgainstLast5: aggregate.coverage.goals,
+    cornersForLast5: aggregate.coverage.corners,
+    cornersAgainstLast5: aggregate.coverage.corners,
+    cardsForLast5: aggregate.coverage.cards,
+    cardsAgainstLast5: aggregate.coverage.cards,
+    shotsForLast5: aggregate.coverage.shots,
+    shotsAgainstLast5: aggregate.coverage.shots,
+    xgForLast5: aggregate.coverage.xg,
+    xgAgainstLast5: aggregate.coverage.xg,
+  };
+}
+
 export function selectImportMatches(
   imported: FootballMatchImport,
   includedHomeFixtures: number[],
@@ -81,8 +96,8 @@ export function applyFootballImportToAnalysis(
       includedAwayFixtures: imported.away.matches.map((match) => match.fixtureId),
       warnings: imported.warnings,
       coverage: {
-        home: { ...imported.home.aggregate.coverage },
-        away: { ...imported.away.aggregate.coverage },
+        home: toAnalysisCoverage(imported.home.aggregate),
+        away: toAnalysisCoverage(imported.away.aggregate),
       },
     },
   };

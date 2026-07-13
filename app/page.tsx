@@ -3,6 +3,8 @@ import { analysisAreas, audienceCards, pricingPlans } from "@/lib/analityq-data"
 import { DataPipeline } from "./components/DataPipeline";
 import { FAQAccordion } from "./components/FAQAccordion";
 import { HeroDashboard } from "./components/HeroDashboard";
+import { GoalEventDemo } from "./components/GoalEventDemo";
+import { PhoneShowcase } from "./components/PhoneShowcase";
 import { HomePublishedAnalyses } from "./components/HomePublishedAnalyses";
 import { Logo } from "./components/Logo";
 import { PricingCard } from "./components/PricingCard";
@@ -53,6 +55,19 @@ export default function Home() {
       </section>
 
       <section className="section-shell">
+        <SectionHeader
+          eyebrow="Interfejs oparty na danych"
+          title="Od sygnału do czytelnego raportu"
+          description="Lekka prezentacja sposobu, w jaki AnalityQ porządkuje informacje. To demonstracja interfejsu, a nie prawdziwy wynik ani raport meczu."
+          align="center"
+        />
+        <div className="landing-showcase-grid mt-12">
+          <PhoneShowcase />
+          <GoalEventDemo />
+        </div>
+      </section>
+
+      <section className="section-shell">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <SectionHeader
             eyebrow="Dzisiejsze raporty"
@@ -89,7 +104,7 @@ export default function Home() {
       <section className="section-shell">
         <SectionHeader
           eyebrow="Jak działa model"
-          title="Od danych wejściowych do raportu końcowego"
+          title="Od meczu do raportu"
           description="Proces pokazuje, jak AnalityQ porządkuje statystyki, kursy, edge i ryzyko w jeden raport."
           align="center"
         />

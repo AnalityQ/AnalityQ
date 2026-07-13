@@ -1,10 +1,7 @@
 -- AnalityQ / Supabase
 -- Wklej cały ten plik w Supabase SQL Editor i uruchom go w nowym projekcie Supabase.
--- To jest konfiguracja prototypowa dla prywatnego narzędzia /studio.
--- Uwaga produkcyjna:
--- Obecna blokada /studio hasłem w aplikacji jest zabezpieczeniem prototypowym.
--- Docelowo panel administracyjny powinien korzystać z Supabase Auth, zabezpieczonych API routes
--- i polityk RLS ograniczających zapis tylko do zalogowanego administratora.
+-- Publiczny klient ma wyłącznie odczyt opublikowanych analiz.
+-- Operacje Studio wykonują chronione Route Handlers z serwerowym service role.
 
 create extension if not exists pgcrypto;
 
@@ -35,11 +32,18 @@ create table if not exists public.api_cache (
   cache_key text primary key,
   payload jsonb not null,
   expires_at timestamptz not null,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 create index if not exists api_cache_expires_at_idx on public.api_cache (expires_at);
 alter table public.api_cache enable row level security;
+revoke all on table public.api_cache from anon, authenticated;
+grant select, insert, update, delete on table public.api_cache to service_role;
+
+revoke all on table public.analyses from anon, authenticated;
+grant select on table public.analyses to anon;
+grant select, insert, update, delete on table public.analyses to service_role;
 
 create or replace function public.update_analyses_updated_at()
 returns trigger as $$
@@ -56,14 +60,12 @@ before update on public.analyses
 for each row
 execute function public.update_analyses_updated_at();
 
--- Polityki RLS do prototypu.
--- Aplikacja publiczna i tak pobiera tylko publication_status = 'published'.
--- Dodatkowa polityka odczytu wszystkich rekordów dla anon jest prototypowym kompromisem,
--- żeby /studio bez Supabase Auth widziało szkice i archiwum.
--- Produkcyjnie usuń prototypowe polityki anon, zostaw publiczny odczyt published
--- i przenieś studio do Supabase Auth albo zabezpieczonych API routes.
-
 alter table public.analyses enable row level security;
+
+drop policy if exists "Prototypowy odczyt wszystkich analiz dla anon" on public.analyses;
+drop policy if exists "Prototypowy zapis analiz dla anon" on public.analyses;
+drop policy if exists "Prototypowa edycja analiz dla anon" on public.analyses;
+drop policy if exists "Prototypowe usuwanie analiz dla anon" on public.analyses;
 
 drop policy if exists "Publiczny odczyt opublikowanych analiz" on public.analyses;
 create policy "Publiczny odczyt opublikowanych analiz"
@@ -71,32 +73,3 @@ on public.analyses
 for select
 to anon
 using (publication_status = 'published');
-
-drop policy if exists "Prototypowy odczyt wszystkich analiz dla anon" on public.analyses;
-create policy "Prototypowy odczyt wszystkich analiz dla anon"
-on public.analyses
-for select
-to anon
-using (true);
-
-drop policy if exists "Prototypowy zapis analiz dla anon" on public.analyses;
-create policy "Prototypowy zapis analiz dla anon"
-on public.analyses
-for insert
-to anon
-with check (true);
-
-drop policy if exists "Prototypowa edycja analiz dla anon" on public.analyses;
-create policy "Prototypowa edycja analiz dla anon"
-on public.analyses
-for update
-to anon
-using (true)
-with check (true);
-
-drop policy if exists "Prototypowe usuwanie analiz dla anon" on public.analyses;
-create policy "Prototypowe usuwanie analiz dla anon"
-on public.analyses
-for delete
-to anon
-using (true);

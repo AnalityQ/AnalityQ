@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  STUDIO_PASSWORD,
-  studioAccessOpenEvent,
-  studioSessionEvent,
-  studioSessionKey,
-} from "@/lib/studio-auth";
+import { loginToStudio, studioAccessOpenEvent } from "@/lib/studio-auth";
 import { Logo } from "./Logo";
 
 export function StudioShortcutModal() {
@@ -15,6 +10,7 @@ export function StudioShortcutModal() {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     function openModal() {
@@ -27,34 +23,31 @@ export function StudioShortcutModal() {
         event.preventDefault();
         openModal();
       }
-
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
+      if (event.key === "Escape") setOpen(false);
     }
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener(studioAccessOpenEvent, openModal);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener(studioAccessOpenEvent, openModal);
     };
   }, []);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setBusy(true);
+    setError("");
 
-    if (password === STUDIO_PASSWORD) {
-      window.localStorage.setItem(studioSessionKey, "true");
-      window.dispatchEvent(new Event(studioSessionEvent));
+    const result = await loginToStudio(password);
+    if (result.ok) {
       setOpen(false);
       setPassword("");
-      setError("");
       router.push("/studio");
     } else {
-      setError("Nieprawidłowe hasło.");
+      setError(result.message);
     }
+    setBusy(false);
   }
 
   if (!open) return null;
@@ -86,11 +79,13 @@ export function StudioShortcutModal() {
               onChange={(event) => setPassword(event.target.value)}
               className="admin-input mt-2"
               placeholder="Wpisz hasło"
+              autoComplete="current-password"
+              disabled={busy}
             />
           </label>
           {error && <p className="text-sm font-bold text-amber-100">{error}</p>}
-          <button type="submit" className="btn-primary w-full justify-center">
-            Wejdź do panelu
+          <button type="submit" className="btn-primary w-full justify-center" disabled={busy}>
+            {busy ? "Logowanie…" : "Wejdź do panelu"}
           </button>
         </form>
       </div>

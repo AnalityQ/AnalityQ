@@ -5,6 +5,7 @@ import { calculateFullReportMetrics, marketDefinitions, safeNumber } from "@/lib
 import { applyFootballImportToAnalysis } from "@/lib/football-api/apply-import";
 import type { FootballMatchImport } from "@/lib/football-api/types";
 import { normalizeAnalysis } from "@/lib/storage";
+import { studioSessionExpiredEvent } from "@/lib/studio-auth";
 import type {
   AccessStatus,
   DataLevel,
@@ -74,6 +75,12 @@ function Field({ label, children, required = false }: { label: string; children:
   );
 }
 
+function SourceHint({ value }: { value: "api" | "mixed" | "missing" | "manual" }) {
+  if (value === "manual") return null;
+  const label = value === "api" ? "Pobrane z API" : value === "mixed" ? "Zmienione ręcznie" : "Brak danych";
+  return <small className={`field-source field-source-${value}`}>{label}</small>;
+}
+
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="admin-form-section">
@@ -89,11 +96,13 @@ function TeamFields({
   fields,
   draft,
   onChange,
+  sourceFor,
 }: {
   team: "home" | "away";
   fields: typeof statFields;
   draft: MatchAnalysisRecord;
   onChange: (team: "home" | "away", key: keyof TeamManualStats, value: string) => void;
+  sourceFor: (key: string, value: unknown) => "api" | "mixed" | "missing" | "manual";
 }) {
   return (
     <>
@@ -107,6 +116,7 @@ function TeamFields({
             onChange={(event) => onChange(team, field.key, event.target.value)}
             placeholder={field.text ? "np. W,W,D,L,W" : undefined}
           />
+          <SourceHint value={sourceFor(`${team}.${field.key}`, draft.manualStats[team][field.key])} />
         </Field>
       ))}
     </>
@@ -117,30 +127,32 @@ function RequiredMatchFields({
   draft,
   updateBasic,
   firstInputRef,
+  sourceFor,
 }: {
   draft: MatchAnalysisRecord;
   updateBasic: <K extends keyof MatchAnalysisRecord["basic"]>(key: K, value: MatchAnalysisRecord["basic"][K]) => void;
   firstInputRef: React.RefObject<HTMLInputElement | null>;
+  sourceFor: (key: string, value: unknown) => "api" | "mixed" | "missing" | "manual";
 }) {
   return (
     <>
       <Field label="Liga" required>
-        <input ref={firstInputRef} className="admin-input" value={draft.basic.league} onChange={(event) => updateBasic("league", event.target.value)} />
+        <input ref={firstInputRef} className="admin-input" value={draft.basic.league} onChange={(event) => updateBasic("league", event.target.value)} /><SourceHint value={sourceFor("basic.league", draft.basic.league)} />
       </Field>
       <Field label="Kraj">
-        <input className="admin-input" value={draft.basic.country} onChange={(event) => updateBasic("country", event.target.value)} />
+        <input className="admin-input" value={draft.basic.country} onChange={(event) => updateBasic("country", event.target.value)} /><SourceHint value={sourceFor("basic.country", draft.basic.country)} />
       </Field>
       <Field label="Gospodarz" required>
-        <input className="admin-input" value={draft.basic.homeTeam} onChange={(event) => updateBasic("homeTeam", event.target.value)} />
+        <input className="admin-input" value={draft.basic.homeTeam} onChange={(event) => updateBasic("homeTeam", event.target.value)} /><SourceHint value={sourceFor("basic.homeTeam", draft.basic.homeTeam)} />
       </Field>
       <Field label="Gość" required>
-        <input className="admin-input" value={draft.basic.awayTeam} onChange={(event) => updateBasic("awayTeam", event.target.value)} />
+        <input className="admin-input" value={draft.basic.awayTeam} onChange={(event) => updateBasic("awayTeam", event.target.value)} /><SourceHint value={sourceFor("basic.awayTeam", draft.basic.awayTeam)} />
       </Field>
       <Field label="Data i godzina" required>
-        <input className="admin-input" type="datetime-local" value={draft.basic.kickoff} onChange={(event) => updateBasic("kickoff", event.target.value)} />
+        <input className="admin-input" type="datetime-local" value={draft.basic.kickoff} onChange={(event) => updateBasic("kickoff", event.target.value)} /><SourceHint value={sourceFor("basic.kickoff", draft.basic.kickoff)} />
       </Field>
       <Field label="Stadion / miejsce meczu">
-        <input className="admin-input" value={draft.basic.venue} onChange={(event) => updateBasic("venue", event.target.value)} />
+        <input className="admin-input" value={draft.basic.venue} onChange={(event) => updateBasic("venue", event.target.value)} /><SourceHint value={sourceFor("basic.venue", draft.basic.venue)} />
       </Field>
       <div className="sm:col-span-2">
         <Field label="Link do źródła danych">
@@ -155,6 +167,7 @@ export function AnalysisFormModal({
   analysis,
   allMatches,
   mode,
+  startOnOdds = false,
   onModeChange,
   onClose,
   onSave,
@@ -163,6 +176,7 @@ export function AnalysisFormModal({
   analysis: MatchAnalysisRecord;
   allMatches: MatchAnalysisRecord[];
   mode: AnalysisEditorMode;
+  startOnOdds?: boolean;
   onModeChange: (mode: AnalysisEditorMode) => void;
   onClose: () => void;
   onSave: (analysis: MatchAnalysisRecord, status: PublicationStatus) => Promise<MatchAnalysisRecord>;
@@ -172,7 +186,7 @@ export function AnalysisFormModal({
     ...analysis,
     publicationStatus: analysis.publicationStatus || "draft",
   }));
-  const [activeTab, setActiveTab] = useState<Tab>("match");
+  const [activeTab, setActiveTab] = useState<Tab>(startOnOdds ? "odds" : "match");
   const [autosaveState, setAutosaveState] = useState<AutosaveState>("saved");
   const [validationMessage, setValidationMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -180,7 +194,11 @@ export function AnalysisFormModal({
   const [storedDraft, setStoredDraft] = useState<MatchAnalysisRecord | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<FootballMatchImport | null>(null);
+  const [confirmReimport, setConfirmReimport] = useState(false);
+  const [overwriteApproved, setOverwriteApproved] = useState(false);
+  const [manualOverrides, setManualOverrides] = useState<Set<string>>(() => new Set());
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const firstOddsRef = useRef<HTMLInputElement>(null);
   const normalizedDraft = useMemo(() => normalizeAnalysis(draft, allMatches), [allMatches, draft]);
   const metrics = useMemo(() => calculateFullReportMetrics(normalizedDraft), [normalizedDraft]);
   const autosaveKey = draftStorageKey(analysis, allMatches);
@@ -200,7 +218,7 @@ export function AnalysisFormModal({
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusTimer = window.setTimeout(() => firstInputRef.current?.focus(), 120);
+    const focusTimer = window.setTimeout(() => (startOnOdds ? firstOddsRef.current : firstInputRef.current)?.focus(), 120);
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -210,7 +228,7 @@ export function AnalysisFormModal({
       window.clearTimeout(focusTimer);
       window.removeEventListener("keydown", handleKey);
     };
-  }, [onClose]);
+  }, [onClose, startOnOdds]);
 
   useEffect(() => {
     if (autosaveState !== "dirty") return;
@@ -226,6 +244,21 @@ export function AnalysisFormModal({
     return () => window.clearTimeout(timer);
   }, [autosaveKey, autosaveState, draft]);
 
+  useEffect(() => {
+    function preserveDraftOnSessionExpiry() {
+      try {
+        window.localStorage.setItem(autosaveKey, JSON.stringify(draft));
+      } catch {
+        // Brak storage nie może blokować ponownego logowania.
+      }
+    }
+
+    window.addEventListener(studioSessionExpiredEvent, preserveDraftOnSessionExpiry);
+    return () => {
+      window.removeEventListener(studioSessionExpiredEvent, preserveDraftOnSessionExpiry);
+    };
+  }, [autosaveKey, draft]);
+
   function change(updater: (current: MatchAnalysisRecord) => MatchAnalysisRecord) {
     setDraft((current) => {
       const next = updater(current);
@@ -236,10 +269,12 @@ export function AnalysisFormModal({
   }
 
   function updateBasic<K extends keyof MatchAnalysisRecord["basic"]>(key: K, value: MatchAnalysisRecord["basic"][K]) {
+    setManualOverrides((current) => new Set(current).add(`basic.${String(key)}`));
     change((current) => ({ ...current, basic: { ...current.basic, [key]: value } }));
   }
 
   function updateStats(team: "home" | "away", key: keyof TeamManualStats, value: string) {
+    setManualOverrides((current) => new Set(current).add(`${team}.${String(key)}`));
     change((current) => ({
       ...current,
       manualStats: {
@@ -247,6 +282,13 @@ export function AnalysisFormModal({
         [team]: { ...current.manualStats[team], [key]: key === "formLast5" ? value : safeNumber(value) },
       },
     }));
+  }
+
+  function sourceFor(key: string, value: unknown) {
+    if (value === null || value === undefined || value === "") return "missing" as const;
+    if (manualOverrides.has(key)) return "mixed" as const;
+    if (draft.dataSource) return "api" as const;
+    return "manual" as const;
   }
 
   function updateOdds(key: MarketKey, value: string) {
@@ -281,17 +323,29 @@ export function AnalysisFormModal({
     setValidationMessage("");
     setImportOpen(false);
     setPendingImport(null);
-    if (mode === "full") setActiveTab("odds");
-    onNotify("Dane meczu uzupełniły formularz. Dodaj aktualne kursy.");
+    setManualOverrides(new Set());
+    setOverwriteApproved(false);
+    onModeChange("full");
+    setActiveTab("odds");
+    window.setTimeout(() => firstOddsRef.current?.focus(), 120);
+    onNotify("Dane zostały pobrane. Uzupełnij aktualne kursy i sprawdź wartości przed zapisaniem.");
   }
 
   function handleImport(imported: FootballMatchImport) {
-    if (containsEnteredData()) {
+    if (containsEnteredData() && !overwriteApproved) {
       setPendingImport(imported);
       setImportOpen(false);
       return;
     }
     applyImport(imported);
+  }
+
+  function requestImport() {
+    if (containsEnteredData()) {
+      setConfirmReimport(true);
+      return;
+    }
+    setImportOpen(true);
   }
 
   function hasStatsForBothTeams() {
@@ -321,6 +375,12 @@ export function AnalysisFormModal({
       setStoredDraft(null);
       setConfirmPublish(false);
     } catch {
+      try {
+        window.localStorage.setItem(autosaveKey, JSON.stringify(draft));
+        setAutosaveState("saved");
+      } catch {
+        setAutosaveState("dirty");
+      }
       setValidationMessage("Nie udało się zapisać zmian. Spróbuj ponownie.");
     } finally {
       setSaving(false);
@@ -339,11 +399,13 @@ export function AnalysisFormModal({
     setStoredDraft(null);
   }
 
+  const firstMissingOddsKey = marketDefinitions.find((market) => draft.odds[market.key] === null)?.key
+    || marketDefinitions[0].key;
   const oddsFields = (
     <>
       {marketDefinitions.map((market) => (
         <Field key={market.key} label={market.label}>
-          <input className="admin-input" type="number" min="0" step="0.01" value={inputValue(draft.odds[market.key])} onChange={(event) => updateOdds(market.key, event.target.value)} />
+          <input ref={market.key === firstMissingOddsKey ? firstOddsRef : undefined} className="admin-input" type="number" min="0" step="0.01" value={inputValue(draft.odds[market.key])} onChange={(event) => updateOdds(market.key, event.target.value)} />
         </Field>
       ))}
     </>
@@ -397,7 +459,7 @@ export function AnalysisFormModal({
                 <h1 className="mt-2 text-2xl font-black text-white">{mode === "quick" ? "Najważniejsze dane w jednym miejscu" : "Pełna kontrola raportu"}</h1>
                 <span className={`source-mode-badge source-${draft.sourceMode}`}>{draft.sourceMode === "api" ? "Pobrane z API" : draft.sourceMode === "mixed" ? "Zmienione ręcznie" : "Dane ręczne"}</span>
               </div>
-              <div className="flex flex-col items-end gap-2"><button type="button" className="btn-secondary" onClick={() => setImportOpen(true)}>Pobierz dane meczu</button><DraftAutosaveStatus state={autosaveState} /></div>
+              <div className="flex flex-col items-end gap-2"><button type="button" className="btn-secondary" onClick={requestImport}>Pobierz dane meczu</button><DraftAutosaveStatus state={autosaveState} /></div>
             </div>
 
             {mode === "full" && (
@@ -411,10 +473,10 @@ export function AnalysisFormModal({
             <div className="space-y-5">
               {mode === "quick" ? (
                 <>
-                  <Section title="Dane meczu"><RequiredMatchFields draft={draft} updateBasic={updateBasic} firstInputRef={firstInputRef} /></Section>
+                  <Section title="Dane meczu"><RequiredMatchFields draft={draft} updateBasic={updateBasic} firstInputRef={firstInputRef} sourceFor={sourceFor} /></Section>
                   <Section title="Kursy">{oddsFields}</Section>
-                  <Section title="Ostatnie 5 meczów — gospodarze"><TeamFields team="home" fields={quickStatFields} draft={draft} onChange={updateStats} /></Section>
-                  <Section title="Ostatnie 5 meczów — goście"><TeamFields team="away" fields={quickStatFields} draft={draft} onChange={updateStats} /></Section>
+                  <Section title="Ostatnie 5 meczów — gospodarze"><TeamFields team="home" fields={quickStatFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section>
+                  <Section title="Ostatnie 5 meczów — goście"><TeamFields team="away" fields={quickStatFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section>
                   <Section title="Opcjonalnie">
                     <div className="sm:col-span-2"><Field label="Składy i absencje"><textarea className="admin-textarea" value={draft.notes.lineupsNotes} onChange={(event) => updateNote("lineupsNotes", event.target.value)} /></Field></div>
                     <div className="sm:col-span-2"><Field label="Krótka notatka robocza"><textarea className="admin-textarea" value={draft.notes.workNotes} onChange={(event) => updateNote("workNotes", event.target.value)} /></Field></div>
@@ -422,9 +484,9 @@ export function AnalysisFormModal({
                 </>
               ) : (
                 <>
-                  {activeTab === "match" && <Section title="Dane meczu"><RequiredMatchFields draft={draft} updateBasic={updateBasic} firstInputRef={firstInputRef} /></Section>}
-                  {activeTab === "home" && <Section title="Statystyki gospodarzy — ostatnie 5 meczów"><TeamFields team="home" fields={statFields} draft={draft} onChange={updateStats} /></Section>}
-                  {activeTab === "away" && <Section title="Statystyki gości — ostatnie 5 meczów"><TeamFields team="away" fields={statFields} draft={draft} onChange={updateStats} /></Section>}
+                  {activeTab === "match" && <Section title="Dane meczu"><RequiredMatchFields draft={draft} updateBasic={updateBasic} firstInputRef={firstInputRef} sourceFor={sourceFor} /></Section>}
+                  {activeTab === "home" && <Section title="Statystyki gospodarzy — ostatnie 5 meczów"><TeamFields team="home" fields={statFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section>}
+                  {activeTab === "away" && <Section title="Statystyki gości — ostatnie 5 meczów"><TeamFields team="away" fields={statFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section>}
                   {activeTab === "odds" && <Section title="Kursy">{oddsFields}</Section>}
                   {activeTab === "model" && (
                     <Section title="Obliczenia modelu" description="Wyniki bazują na czystych danych. Ręczne wartości są opcjonalne.">
@@ -470,6 +532,7 @@ export function AnalysisFormModal({
         </div>
       </div>
       {importOpen && <MatchImportModal onClose={() => setImportOpen(false)} onApply={handleImport} />}
+      {confirmReimport && <ConfirmDialog title="Pobrać dane ponownie?" message="Ponowne pobranie może zastąpić ręcznie zmienione wartości. Czy chcesz kontynuować?" confirmLabel="Kontynuuj" onCancel={() => setConfirmReimport(false)} onConfirm={() => { setConfirmReimport(false); setOverwriteApproved(true); setImportOpen(true); }} />}
       {pendingImport && <ConfirmDialog title="Zastąpić dane w formularzu?" message="Formularz zawiera już dane. Import zastąpi dane meczu i statystyki obu drużyn, ale pozostawi wpisane kursy oraz notatki." confirmLabel="Zastąp dane" onCancel={() => setPendingImport(null)} onConfirm={() => applyImport(pendingImport)} />}
     </div>
   );

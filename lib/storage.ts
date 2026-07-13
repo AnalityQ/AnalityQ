@@ -1,5 +1,3 @@
-"use client";
-
 import { emptyMarketNumbers, safeNumber, statNumberKeys } from "./calculations";
 import type {
   AccessStatus,

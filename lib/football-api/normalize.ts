@@ -64,6 +64,11 @@ function resultFor(fixture: ApiFootballFixture, teamId: number): "W" | "D" | "L"
   return "D";
 }
 
+function combinedCards(yellow: NumericValue, red: NumericValue): NumericValue {
+  if (yellow === null || red === null) return null;
+  return yellow + red;
+}
+
 export function normalizeFixtureStatistics(
   rawFixture: ApiFootballFixture,
   rawStatistics: ApiFootballTeamStatistics[] | null | undefined,
@@ -77,10 +82,16 @@ export function normalizeFixtureStatistics(
   const read = (stats: ApiFootballStatistic[] | null | undefined, aliases: string[]) =>
     numericStatistic(stats, aliases);
 
+  const yellowCardsFor = read(teamStatistics, ["Yellow Cards", "Yellow Card"]);
+  const yellowCardsAgainst = read(opponentStatistics, ["Yellow Cards", "Yellow Card"]);
+  const redCardsFor = read(teamStatistics, ["Red Cards", "Red Card"]);
+  const redCardsAgainst = read(opponentStatistics, ["Red Cards", "Red Card"]);
+
   return {
     fixtureId: rawFixture.fixture.id,
     date: rawFixture.fixture.date,
     opponentName: opponent.name,
+    opponentLogo: opponent.logo || null,
     isHome,
     goalsFor: isHome ? safeNumber(rawFixture.goals.home) : safeNumber(rawFixture.goals.away),
     goalsAgainst: isHome ? safeNumber(rawFixture.goals.away) : safeNumber(rawFixture.goals.home),
@@ -90,10 +101,12 @@ export function normalizeFixtureStatistics(
     shotsOnTargetAgainst: read(opponentStatistics, ["Shots on Goal", "Shots on Target"]),
     cornersFor: read(teamStatistics, ["Corner Kicks", "Corners"]),
     cornersAgainst: read(opponentStatistics, ["Corner Kicks", "Corners"]),
-    yellowCardsFor: read(teamStatistics, ["Yellow Cards", "Yellow Card"]),
-    yellowCardsAgainst: read(opponentStatistics, ["Yellow Cards", "Yellow Card"]),
-    redCardsFor: read(teamStatistics, ["Red Cards", "Red Card"]),
-    redCardsAgainst: read(opponentStatistics, ["Red Cards", "Red Card"]),
+    yellowCardsFor,
+    yellowCardsAgainst,
+    redCardsFor,
+    redCardsAgainst,
+    cardsFor: combinedCards(yellowCardsFor, redCardsFor),
+    cardsAgainst: combinedCards(yellowCardsAgainst, redCardsAgainst),
     xgFor: read(teamStatistics, ["expected_goals", "Expected Goals", "Expected Goal", "xG"]),
     xgAgainst: read(opponentStatistics, ["expected_goals", "Expected Goals", "Expected Goal", "xG"]),
     possessionFor: read(teamStatistics, ["Ball Possession", "Possession"]),

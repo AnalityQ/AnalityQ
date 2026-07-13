@@ -1,4 +1,5 @@
 import { aggregateLastMatches, aggregateWarnings } from "./aggregate";
+import { getCacheStatus } from "./cache";
 import { normalizeFixtureStatistics, simplifyFixture } from "./normalize";
 import { getFootballDataProvider } from "./provider";
 import { FootballApiError, type FootballMatchImport, type NormalizedTeamMatchStats } from "./types";
@@ -10,8 +11,12 @@ async function normalizeTeamFixtures(
 ) {
   const provider = getFootballDataProvider();
   const warnings: string[] = [];
+  const validFixtures = fixtures.filter((fixture) => fixture.goals.home !== null && fixture.goals.away !== null);
+  if (validFixtures.length < fixtures.length) {
+    warnings.push("Pominięto zakończone spotkanie bez dostępnego wyniku bramkowego.");
+  }
   const normalized = await Promise.all(
-    fixtures.map(async (fixture): Promise<NormalizedTeamMatchStats> => {
+    validFixtures.map(async (fixture): Promise<NormalizedTeamMatchStats> => {
       try {
         const statistics = await provider.getFixtureStatistics(fixture.fixture.id, { refresh });
         if (!statistics.length) warnings.push(`Brak pełnych statystyk meczu z ${fixture.fixture.date.slice(0, 10)}.`);
@@ -23,11 +28,7 @@ async function normalizeTeamFixtures(
       }
     }),
   );
-  const withScores = normalized.filter((match) => match.goalsFor !== null && match.goalsAgainst !== null);
-  if (withScores.length < normalized.length) {
-    warnings.push("Pominięto zakończone spotkanie bez dostępnego wyniku bramkowego.");
-  }
-  return { normalized: withScores, warnings };
+  return { normalized, warnings };
 }
 
 export async function buildFootballMatchImport(fixtureId: number, refresh = false): Promise<FootballMatchImport> {
@@ -68,16 +69,19 @@ export async function buildFootballMatchImport(fixtureId: number, refresh = fals
   ];
 
   const hasSparseStatistics = [homeAggregate, awayAggregate].some(
-    (aggregate) => aggregate.coverage.shotsForLast5 === 0 || aggregate.coverage.cornersForLast5 === 0,
+    (aggregate) => aggregate.coverage.shots === 0 || aggregate.coverage.corners === 0,
   );
   if (hasSparseStatistics) warnings.push("Dla tej ligi nie są dostępne pełne statystyki.");
-  if (homeAggregate.coverage.xgForLast5 === 0 && awayAggregate.coverage.xgForLast5 === 0) {
-    warnings.push("Nie udało się pobrać danych xG.");
+  if (homeAggregate.coverage.xg < homeAggregate.matchesCount || awayAggregate.coverage.xg < awayAggregate.matchesCount) {
+    warnings.push("Nie wszystkie spotkania zawierają dane xG.");
   }
 
   if (!homeData.normalized.length || !awayData.normalized.length) {
     warnings.push("Pobrano tylko część statystyk. Sprawdź dane przed zapisaniem.");
   }
+
+  const cache = getCacheStatus();
+  if (cache.warning) warnings.push(cache.warning);
 
   return {
     fixture: simplifyFixture(fixture),
@@ -85,7 +89,7 @@ export async function buildFootballMatchImport(fixtureId: number, refresh = fals
     away: { team: fixture.teams.away, matches: awayData.normalized, aggregate: awayAggregate },
     fetchedAt: new Date().toISOString(),
     warnings: [...new Set(warnings)],
-    cache: { refreshed: refresh },
+    cache: { refreshed: refresh, persistent: cache.persistent, warning: cache.warning },
   };
 }
 

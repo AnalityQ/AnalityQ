@@ -1,55 +1,20 @@
 "use client";
 
+import { rowToAnalysis, type AnalysisRow } from "./analysis-persistence";
+import { studioSessionExpiredEvent } from "./studio-auth";
 import { supabase, supabaseMissingConfigMessage } from "./supabase";
-import { buildAnalysisSlug, createEmptyAnalysis, getNextFreeSlot, normalizeAnalysis, slugify } from "./storage";
-import type {
-  AnalysisBasic,
-  AnalysisDataSource,
-  AnalysisNotes,
-  AnalysisSettings,
-  MarketNumbers,
-  MatchAnalysisRecord,
-  PremiumSections,
-  PublicationStatus,
-  SourceMode,
-  UserProbabilities,
-} from "./types";
+import type { MatchAnalysisRecord, PublicationStatus } from "./types";
 
 export const databaseChangeEvent = "analityq-database";
 export const databaseFetchErrorMessage =
   "Nie udało się pobrać danych z bazy. Sprawdź połączenie lub konfigurację Supabase.";
 
-type AnalysisRow = {
-  id: string;
-  slot_number: number | null;
-  slug: string;
-  created_at: string | null;
-  updated_at: string | null;
-  source_mode: SourceMode | string | null;
-  data_source: AnalysisDataSource | null;
-  publication_status: PublicationStatus | string | null;
-  basic: Partial<AnalysisBasic> | null;
-  manual_stats: Partial<MatchAnalysisRecord["manualStats"]> | null;
-  odds: Partial<MarketNumbers> | null;
-  user_probabilities: UserProbabilities | null;
-  settings: Partial<AnalysisSettings> | null;
-  notes: Partial<AnalysisNotes> | null;
-  premium_sections: Partial<PremiumSections> | null;
-};
-
-type AnalysisInsertPayload = {
-  slot_number: number;
-  slug: string;
-  source_mode: SourceMode;
-  data_source: AnalysisDataSource | null;
-  publication_status: PublicationStatus;
-  basic: AnalysisBasic;
-  manual_stats: MatchAnalysisRecord["manualStats"];
-  odds: MarketNumbers;
-  user_probabilities: UserProbabilities;
-  settings: AnalysisSettings;
-  notes: AnalysisNotes;
-  premium_sections: PremiumSections;
+type ApiEnvelope<T> = {
+  data?: T;
+  error?: {
+    code?: string;
+    message?: string;
+  };
 };
 
 export class SupabaseConfigError extends Error {
@@ -60,12 +25,16 @@ export class SupabaseConfigError extends Error {
 }
 
 export class SupabaseDatabaseError extends Error {
-  details?: string;
-
-  constructor(message: string, details?: string) {
+  constructor(message: string) {
     super(message);
     this.name = "SupabaseDatabaseError";
-    this.details = details;
+  }
+}
+
+export class StudioSessionExpiredError extends Error {
+  constructor() {
+    super("Sesja wygasła. Zaloguj się ponownie.");
+    this.name = "StudioSessionExpiredError";
   }
 }
 
@@ -75,88 +44,45 @@ function ensureSupabase() {
 }
 
 function notifyDatabaseChange() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(databaseChangeEvent));
-  }
+  window.dispatchEvent(new Event(databaseChangeEvent));
 }
 
-function currentIso() {
-  return new Date().toISOString();
+function notifySessionExpired() {
+  window.dispatchEvent(new Event(studioSessionExpiredEvent));
 }
 
-function rowToAnalysis(row: AnalysisRow): MatchAnalysisRecord {
-  const now = currentIso();
-  const record = {
-    id: row.id,
-    slotNumber: row.slot_number || 1,
-    slug: row.slug,
-    createdAt: row.created_at || now,
-    updatedAt: row.updated_at || row.created_at || now,
-    sourceMode: (row.source_mode || "manual") as SourceMode,
-    dataSource: row.data_source || null,
-    publicationStatus: (row.publication_status || "draft") as PublicationStatus,
-    basic: row.basic || {},
-    manualStats: row.manual_stats || {},
-    odds: row.odds || {},
-    userProbabilities: row.user_probabilities || {},
-    settings: row.settings || {},
-    notes: row.notes || {},
-    premiumSections: row.premium_sections || {},
-  } as MatchAnalysisRecord;
-
-  const normalized = normalizeAnalysis(record, [record]);
-  normalized.slug = row.slug;
-  normalized.createdAt = row.created_at || now;
-  normalized.updatedAt = row.updated_at || row.created_at || now;
-  return normalized;
-}
-
-function toPayload(analysis: MatchAnalysisRecord): AnalysisInsertPayload {
-  return {
-    slot_number: analysis.slotNumber,
-    slug: analysis.slug,
-    source_mode: analysis.sourceMode,
-    data_source: analysis.dataSource,
-    publication_status: analysis.publicationStatus,
-    basic: analysis.basic,
-    manual_stats: analysis.manualStats,
-    odds: analysis.odds,
-    user_probabilities: analysis.userProbabilities,
-    settings: analysis.settings,
-    notes: analysis.notes,
-    premium_sections: analysis.premiumSections,
-  };
-}
-
-function getErrorDetails(error: unknown) {
-  if (!error || typeof error !== "object") return undefined;
-  const maybeError = error as { message?: string; details?: string; hint?: string; code?: string };
-  return [maybeError.message, maybeError.details, maybeError.hint, maybeError.code].filter(Boolean).join(" | ");
-}
-
-function throwDatabaseError(action: string, error: unknown): never {
-  throw new SupabaseDatabaseError(action, getErrorDetails(error));
-}
-
-function resolveUniqueSlug(baseSlug: string, existing: MatchAnalysisRecord[], idToIgnore?: string) {
-  const base = slugify(baseSlug) || "analiza";
-  let slug = base;
-  let index = 2;
-
-  while (existing.some((item) => item.id !== idToIgnore && item.slug === slug)) {
-    slug = `${base}-${index}`;
-    index += 1;
+async function studioRequest<T>(path: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  return slug;
-}
+  const response = await fetch(path, {
+    ...init,
+    headers,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
 
-async function fetchExistingAnalyses() {
-  const client = ensureSupabase();
-  const { data, error } = await client.from("analyses").select("*").order("slot_number", { ascending: true });
+  let payload: ApiEnvelope<T> = {};
+  try {
+    payload = (await response.json()) as ApiEnvelope<T>;
+  } catch {
+    // Zwracamy jednolity komunikat zamiast szczegółów odpowiedzi serwera.
+  }
 
-  if (error) throwDatabaseError("Nie udało się pobrać analiz z Supabase.", error);
-  return ((data || []) as AnalysisRow[]).map(rowToAnalysis);
+  if (response.status === 401) {
+    notifySessionExpired();
+    throw new StudioSessionExpiredError();
+  }
+
+  if (!response.ok || payload.data === undefined) {
+    throw new SupabaseDatabaseError(
+      payload.error?.message || "Nie udało się wykonać operacji w Studio.",
+    );
+  }
+
+  return payload.data;
 }
 
 export function getPublicDatabaseErrorMessage(error: unknown) {
@@ -165,191 +91,114 @@ export function getPublicDatabaseErrorMessage(error: unknown) {
 }
 
 export function getStudioDatabaseErrorMessage(error: unknown) {
-  if (error instanceof SupabaseConfigError) return supabaseMissingConfigMessage;
-  if (error instanceof SupabaseDatabaseError) return error.details ? `${error.message} ${error.details}` : error.message;
+  if (error instanceof StudioSessionExpiredError) return error.message;
+  if (error instanceof SupabaseDatabaseError) return error.message;
   return "Wystąpił problem podczas pracy z bazą Supabase.";
 }
 
 export async function getAllAnalyses() {
-  return fetchExistingAnalyses();
+  return studioRequest<MatchAnalysisRecord[]>("/api/studio/analyses");
 }
 
 export async function getPublishedAnalyses() {
-  const client = ensureSupabase();
-  const { data, error } = await client
+  const { data, error } = await ensureSupabase()
     .from("analyses")
     .select("*")
     .eq("publication_status", "published")
     .order("slot_number", { ascending: true })
     .order("created_at", { ascending: true });
 
-  if (error) throwDatabaseError("Nie udało się pobrać opublikowanych analiz.", error);
+  if (error) throw new SupabaseDatabaseError(databaseFetchErrorMessage);
   return ((data || []) as AnalysisRow[]).map(rowToAnalysis);
 }
 
 export async function getAnalysisBySlug(slug: string) {
-  const client = ensureSupabase();
-  const { data, error } = await client.from("analyses").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await ensureSupabase()
+    .from("analyses")
+    .select("*")
+    .eq("slug", slug)
+    .eq("publication_status", "published")
+    .maybeSingle();
 
-  if (error) throwDatabaseError("Nie udało się pobrać raportu.", error);
+  if (error) throw new SupabaseDatabaseError(databaseFetchErrorMessage);
   return data ? rowToAnalysis(data as AnalysisRow) : null;
 }
 
-export async function createAnalysis(data: MatchAnalysisRecord) {
-  const client = ensureSupabase();
-  const existing = await fetchExistingAnalyses();
-  const normalized = normalizeAnalysis(data, existing);
-  normalized.slug = resolveUniqueSlug(buildAnalysisSlug(normalized, existing), existing, normalized.id);
-
-  const { data: row, error } = await client.from("analyses").insert(toPayload(normalized)).select("*").single();
-
-  if (error) throwDatabaseError("Nie udało się zapisać analizy w Supabase.", error);
+export async function createAnalysis(analysis: MatchAnalysisRecord) {
+  const saved = await studioRequest<MatchAnalysisRecord>("/api/studio/analyses", {
+    method: "POST",
+    body: JSON.stringify({ analysis }),
+  });
   notifyDatabaseChange();
-  return rowToAnalysis(row as AnalysisRow);
+  return saved;
 }
 
-export async function updateAnalysis(id: string, data: MatchAnalysisRecord) {
-  const client = ensureSupabase();
-  const existing = await fetchExistingAnalyses();
-  const current = existing.find((item) => item.id === id);
-  const normalized = normalizeAnalysis(
+export async function updateAnalysis(id: string, analysis: MatchAnalysisRecord) {
+  const saved = await studioRequest<MatchAnalysisRecord>(
+    `/api/studio/analyses/${encodeURIComponent(id)}`,
     {
-      ...(current || data),
-      ...data,
-      id,
-      createdAt: current?.createdAt || data.createdAt,
-      updatedAt: currentIso(),
+      method: "PATCH",
+      body: JSON.stringify({ analysis }),
     },
-    existing,
   );
-  normalized.slug = resolveUniqueSlug(normalized.slug || buildAnalysisSlug(normalized, existing), existing, id);
-
-  const { data: row, error } = await client
-    .from("analyses")
-    .update({ ...toPayload(normalized), updated_at: currentIso() })
-    .eq("id", id)
-    .select("*")
-    .single();
-
-  if (error) throwDatabaseError("Nie udało się zaktualizować analizy.", error);
   notifyDatabaseChange();
-  return rowToAnalysis(row as AnalysisRow);
+  return saved;
 }
 
 export async function deleteAnalysis(id: string) {
-  const client = ensureSupabase();
-  const { error } = await client.from("analyses").delete().eq("id", id);
-
-  if (error) throwDatabaseError("Nie udało się usunąć analizy.", error);
+  await studioRequest<{ deleted: boolean }>(
+    `/api/studio/analyses/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
   notifyDatabaseChange();
 }
 
-export async function publishAnalysis(id: string) {
+async function updatePublicationStatus(id: string, status: PublicationStatus) {
+  const saved = await studioRequest<MatchAnalysisRecord>(
+    `/api/studio/analyses/${encodeURIComponent(id)}/status`,
+    {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    },
+  );
+  notifyDatabaseChange();
+  return saved;
+}
+
+export function publishAnalysis(id: string) {
   return updatePublicationStatus(id, "published");
 }
 
-export async function unpublishAnalysis(id: string) {
+export function unpublishAnalysis(id: string) {
   return updatePublicationStatus(id, "draft");
 }
 
-export async function archiveAnalysis(id: string) {
+export function restoreAnalysis(id: string) {
+  return updatePublicationStatus(id, "draft");
+}
+
+export function archiveAnalysis(id: string) {
   return updatePublicationStatus(id, "archived");
 }
 
 export async function duplicateAnalysis(id: string) {
-  const existing = await fetchExistingAnalyses();
-  const source = existing.find((item) => item.id === id);
-  if (!source) throw new SupabaseDatabaseError("Nie znaleziono analizy do zduplikowania.");
-
-  const slotNumber = getNextFreeSlot(existing);
-  if (!slotNumber) throw new SupabaseDatabaseError("Brak wolnego slotu na nowy szkic.");
-
-  const empty = createEmptyAnalysis(slotNumber);
-  const duplicate: MatchAnalysisRecord = {
-    ...source,
-    id: empty.id,
-    slotNumber,
-    slug: empty.slug,
-    createdAt: "",
-    updatedAt: "",
-    publicationStatus: "draft",
-    basic: { ...source.basic },
-    manualStats: {
-      home: { ...source.manualStats.home },
-      away: { ...source.manualStats.away },
-    },
-    odds: { ...source.odds },
-    userProbabilities: { ...source.userProbabilities },
-    settings: { ...source.settings },
-    notes: { ...source.notes },
-    premiumSections: { ...source.premiumSections },
-    dataSource: source.dataSource
-      ? {
-          ...source.dataSource,
-          includedHomeFixtures: [...source.dataSource.includedHomeFixtures],
-          includedAwayFixtures: [...source.dataSource.includedAwayFixtures],
-          warnings: [...source.dataSource.warnings],
-          coverage: source.dataSource.coverage
-            ? {
-                home: { ...source.dataSource.coverage.home },
-                away: { ...source.dataSource.coverage.away },
-              }
-            : undefined,
-        }
-      : null,
-  };
-
-  return createAnalysis(duplicate);
-}
-
-async function updatePublicationStatus(id: string, publicationStatus: PublicationStatus) {
-  const client = ensureSupabase();
-  const { data: row, error } = await client
-    .from("analyses")
-    .update({ publication_status: publicationStatus, updated_at: currentIso() })
-    .eq("id", id)
-    .select("*")
-    .single();
-
-  if (error) throwDatabaseError("Nie udało się zmienić statusu publikacji.", error);
+  const saved = await studioRequest<MatchAnalysisRecord>(
+    `/api/studio/analyses/${encodeURIComponent(id)}/duplicate`,
+    { method: "POST" },
+  );
   notifyDatabaseChange();
-  return rowToAnalysis(row as AnalysisRow);
+  return saved;
 }
 
 export async function importAnalysesToDatabase(data: unknown) {
-  let parsed = data;
-
-  if (typeof data === "string") {
-    try {
-      parsed = JSON.parse(data);
-    } catch {
-      throw new SupabaseDatabaseError("Niepoprawny JSON. Sprawdź zawartość kopii zapasowej.");
-    }
-  }
-
-  if (!Array.isArray(parsed)) {
-    throw new SupabaseDatabaseError("Niepoprawny format danych. JSON musi zawierać tablicę analiz.");
-  }
-
-  if (parsed.length === 0) {
-    throw new SupabaseDatabaseError("Brak danych do importu.");
-  }
-
-  const imported: MatchAnalysisRecord[] = [];
-
-  for (const item of parsed) {
-    if (!item || typeof item !== "object") {
-      throw new SupabaseDatabaseError("Niepoprawny rekord w kopii JSON.");
-    }
-
-    const saved = await createAnalysis(item as MatchAnalysisRecord);
-    imported.push(saved);
-  }
-
+  const imported = await studioRequest<MatchAnalysisRecord[]>("/api/studio/analyses/import", {
+    method: "POST",
+    body: JSON.stringify({ data }),
+  });
   notifyDatabaseChange();
   return imported;
 }
 
-export async function exportAnalysesFromDatabase() {
+export function exportAnalysesFromDatabase() {
   return getAllAnalyses();
 }

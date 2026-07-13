@@ -1,7 +1,3 @@
-import { STUDIO_PASSWORD } from "./studio-auth";
-
-export const adminPassword = STUDIO_PASSWORD;
-
 export const disclaimer =
   "Model AnalityQ jest narzędziem pomocniczym opartym na danych wejściowych. Wyniki procentowe i Value Index mają charakter szacunkowy, nie gwarantują rezultatu i nie są rekomendacją hazardową. Decyzje użytkownik podejmuje samodzielnie.";
 
@@ -60,24 +56,32 @@ export const analysisAreas = [
 
 export const pipelineSteps = [
   {
-    title: "Dane wejściowe",
-    text: "Analityk ręcznie wpisuje dane meczu, statystyki, kursy, formę, składy i absencje.",
+    title: "Wybór spotkania",
+    text: "Administrator wybiera datę i spotkanie dostępne u dostawcy danych.",
   },
   {
-    title: "Obliczenia statystyczne",
-    text: "AnalityQ liczy średnie z ostatnich pięciu meczów, oczekiwane gole, rożne, kartki i prawdopodobieństwa modelowe.",
+    title: "Pobranie danych",
+    text: "Serwer pobiera szczegóły meczu i maksymalnie pięć zakończonych spotkań każdej drużyny.",
   },
   {
-    title: "Porównanie z kursem",
-    text: "Kursy są przeliczane na prawdopodobieństwo, a model porównuje je z prawdopodobieństwem statystycznym i wylicza edge.",
+    title: "Analiza ostatnich meczów",
+    text: "Każde dostępne spotkanie można sprawdzić i niezależnie uwzględnić w analizie.",
   },
   {
-    title: "Ocena ryzyka",
-    text: "Poziom ryzyka uwzględnia kompletność danych, stabilność sygnałów, składy i zmienność meczu.",
+    title: "Normalizacja statystyk",
+    text: "Różne formaty danych są ujednolicane, a brakujące wartości pozostają oznaczone jako brak danych.",
   },
   {
-    title: "Raport końcowy",
-    text: "Opublikowana analiza trafia do publicznej listy jako przejrzysty raport z danymi, scenariuszami i disclaimerem.",
+    title: "Obliczenia modelu",
+    text: "AnalityQ liczy średnie, prawdopodobieństwa, edge, Value Index i poziom ryzyka.",
+  },
+  {
+    title: "Sprawdzenie przez administratora",
+    text: "Pobrane wartości i ręcznie uzupełnione kursy są weryfikowane przed zapisem.",
+  },
+  {
+    title: "Publikacja raportu",
+    text: "Dopiero ręcznie potwierdzony raport może trafić na publiczną listę analiz.",
   },
 ];
 

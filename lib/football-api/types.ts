@@ -99,6 +99,7 @@ export type NormalizedTeamMatchStats = {
   fixtureId: number;
   date: string;
   opponentName: string;
+  opponentLogo: string | null;
   isHome: boolean;
   goalsFor: NumericValue;
   goalsAgainst: NumericValue;
@@ -112,6 +113,8 @@ export type NormalizedTeamMatchStats = {
   yellowCardsAgainst: NumericValue;
   redCardsFor: NumericValue;
   redCardsAgainst: NumericValue;
+  cardsFor: NumericValue;
+  cardsAgainst: NumericValue;
   xgFor: NumericValue;
   xgAgainst: NumericValue;
   possessionFor: NumericValue;
@@ -125,10 +128,21 @@ export type NormalizedTeamMatchStats = {
 
 export type AggregateCoverageKey = Exclude<keyof TeamManualStats, "formLast5">;
 
+export type AggregateCoverage = {
+  goals: number;
+  shots: number;
+  shotsOnTarget: number;
+  corners: number;
+  cards: number;
+  xg: number;
+};
+
 export type AggregatedLastMatches = TeamManualStats & {
   matchesCount: number;
-  coverage: Record<AggregateCoverageKey, number>;
-  averages: Record<AggregateCoverageKey, NumericValue>;
+  shotsOnTargetForLast5: NumericValue;
+  shotsOnTargetAgainstLast5: NumericValue;
+  coverage: AggregateCoverage;
+  averages: Record<AggregateCoverageKey | "shotsOnTargetForLast5" | "shotsOnTargetAgainstLast5", NumericValue>;
 };
 
 export type FootballImportTeamData = {
@@ -143,7 +157,7 @@ export type FootballMatchImport = {
   away: FootballImportTeamData;
   fetchedAt: string;
   warnings: string[];
-  cache: { refreshed: boolean };
+  cache: { refreshed: boolean; persistent: boolean; warning?: string };
 };
 
 export type ProviderRequestOptions = {

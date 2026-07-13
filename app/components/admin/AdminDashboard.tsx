@@ -30,7 +30,7 @@ import { MatchImportModal } from "./MatchImportModal";
 import { StudioAnalysisCard } from "./StudioAnalysisCard";
 import { StudioFilters, type StudioSort, type StudioTab } from "./StudioFilters";
 
-type EditorState = { analysis: MatchAnalysisRecord; mode: AnalysisEditorMode } | null;
+type EditorState = { analysis: MatchAnalysisRecord; mode: AnalysisEditorMode; startOnOdds?: boolean } | null;
 
 export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [editor, setEditor] = useState<EditorState>(null);
@@ -113,9 +113,9 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       return;
     }
     const analysis = applyFootballImportToAnalysis(createEmptyAnalysis(slot), imported);
-    setEditor({ analysis, mode: "quick" });
+    setEditor({ analysis, mode: "full", startOnOdds: true });
     setImportOpen(false);
-    setToast("Dane meczu uzupełniły formularz. Sprawdź je i dodaj aktualne kursy.");
+    setToast("Dane zostały pobrane. Uzupełnij aktualne kursy i sprawdź wartości przed zapisaniem.");
   }
 
   async function handleSave(analysis: MatchAnalysisRecord, status: PublicationStatus) {
@@ -221,7 +221,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       <details className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><summary className="cursor-pointer font-black text-white">Narzędzia danych i migracji</summary><div className="mt-6"><LocalMigrationPanel onChange={loadMatches} /><ImportExportPanel onChange={loadMatches} /></div></details>
       <p className="mt-8 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-6 text-slate-400">{modelDisclaimer}</p>
 
-      {editor && <AnalysisFormModal key={editor.analysis.id} analysis={editor.analysis} allMatches={matches} mode={editor.mode} onModeChange={(mode) => setEditor((current) => current ? { ...current, mode } : null)} onClose={() => setEditor(null)} onSave={handleSave} onNotify={setToast} />}
+      {editor && <AnalysisFormModal key={editor.analysis.id} analysis={editor.analysis} allMatches={matches} mode={editor.mode} startOnOdds={editor.startOnOdds} onModeChange={(mode) => setEditor((current) => current ? { ...current, mode } : null)} onClose={() => setEditor(null)} onSave={handleSave} onNotify={setToast} />}
       {toast && <AnalysisToast message={toast} onClose={() => setToast("")} />}
       {publishConfirmation && <ConfirmDialog title="Opublikować analizę z małą ilością danych?" message="Analiza zawiera mało danych. Raport może mieć niższą pewność i powinien być traktowany jako wstępny." confirmLabel="Opublikuj mimo ostrzeżenia" onCancel={() => setPublishConfirmation(null)} onConfirm={() => { const id = publishConfirmation; setPublishConfirmation(null); void handleStatus(id, "published", true); }} />}
       {importOpen && <MatchImportModal onClose={() => setImportOpen(false)} onApply={handleImportedMatch} />}

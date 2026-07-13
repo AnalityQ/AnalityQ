@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { selectImportMatches } from "@/lib/football-api/apply-import";
+import { studioSessionExpiredEvent } from "@/lib/studio-auth";
 import type {
   AggregatedLastMatches,
   FootballFixtureSummary,
@@ -11,11 +12,12 @@ import type {
 import { Logo } from "../Logo";
 
 const importSteps = [
+  "Łączenie ze źródłem danych…",
   "Pobieranie danych meczu…",
-  "Pobieranie ostatnich spotkań gospodarzy…",
-  "Pobieranie ostatnich spotkań gości…",
-  "Pobieranie statystyk meczowych…",
-  "Przeliczanie danych…",
+  "Analiza gospodarzy…",
+  "Analiza gości…",
+  "Pobieranie statystyk spotkań…",
+  "Normalizacja danych…",
   "Dane gotowe do sprawdzenia.",
 ];
 
@@ -51,6 +53,10 @@ function cards(match: NormalizedTeamMatchStats, side: "for" | "against") {
 
 async function readResponse<T>(response: Response): Promise<T> {
   const payload = (await response.json()) as { data?: T; error?: { message?: string } };
+  if (response.status === 401) {
+    window.dispatchEvent(new Event(studioSessionExpiredEvent));
+    throw new Error("Sesja wygasła. Zaloguj się ponownie.");
+  }
   if (!response.ok || !payload.data) {
     throw new Error(payload.error?.message || "Nie udało się pobrać danych piłkarskich.");
   }
@@ -133,11 +139,30 @@ function TeamMatches({
 
 function AggregateSummary({ title, aggregate }: { title: string; aggregate: AggregatedLastMatches }) {
   const entries: Array<[string, number | null, keyof AggregatedLastMatches["coverage"]]> = [
-    ["Gole strzelone", aggregate.goalsForLast5, "goalsForLast5"], ["Gole stracone", aggregate.goalsAgainstLast5, "goalsAgainstLast5"],
-    ["Strzały", aggregate.shotsForLast5, "shotsForLast5"], ["Rzuty rożne", aggregate.cornersForLast5, "cornersForLast5"],
-    ["Kartki", aggregate.cardsForLast5, "cardsForLast5"], ["xG", aggregate.xgForLast5, "xgForLast5"],
+    ["Gole strzelone", aggregate.goalsForLast5, "goals"], ["Gole stracone", aggregate.goalsAgainstLast5, "goals"],
+    ["Strzały", aggregate.shotsForLast5, "shots"], ["Strzały celne", aggregate.shotsOnTargetForLast5, "shotsOnTarget"],
+    ["Rzuty rożne", aggregate.cornersForLast5, "corners"], ["Kartki", aggregate.cardsForLast5, "cards"],
+    ["xG", aggregate.xgForLast5, "xg"],
   ];
   return <div className="api-aggregate-card"><p className="font-black text-white">{title}</p><p className="mt-1 text-xs text-slate-400">{aggregate.matchesCount} uwzględnionych spotkań · forma {aggregate.formLast5 || "—"}</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{entries.map(([label, total, key]) => <div key={label}><span>{label}</span><strong>{value(total, 2)}</strong><small>z {aggregate.coverage[key]} meczów</small></div>)}</div></div>;
+}
+
+function CoverageSummary({ title, aggregate }: { title: string; aggregate: AggregatedLastMatches }) {
+  const labels: Array<[keyof AggregatedLastMatches["coverage"], string]> = [
+    ["goals", "Gole"], ["shots", "Strzały"], ["shotsOnTarget", "Strzały celne"],
+    ["corners", "Rzuty rożne"], ["cards", "Kartki"], ["xg", "xG"],
+  ];
+  const possible = aggregate.matchesCount * labels.length;
+  const available = labels.reduce((sum, [key]) => sum + aggregate.coverage[key], 0);
+  const completeness = possible > 0 ? Math.round((available / possible) * 100) : 0;
+  return (
+    <div className="api-coverage-card">
+      <div className="flex items-center justify-between gap-3"><strong>{title}</strong><span>{completeness}% kompletności</span></div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {labels.map(([key, label]) => <div key={key}><span>{label}</span><strong>{aggregate.coverage[key]}/{aggregate.matchesCount}</strong></div>)}
+      </div>
+    </div>
+  );
 }
 
 export function MatchImportModal({ onClose, onApply }: { onClose: () => void; onApply: (data: FootballMatchImport) => void }) {
@@ -152,6 +177,19 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
   const [homeSelected, setHomeSelected] = useState<number[]>([]);
   const [awaySelected, setAwaySelected] = useState<number[]>([]);
   const [refreshPrompt, setRefreshPrompt] = useState(false);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [onClose]);
 
   const visibleFixtures = useMemo(() => {
     const normalized = query.toLowerCase().trim();
@@ -172,11 +210,11 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
 
   async function loadImport(fixtureId: number, refresh = false) {
     setError(""); setImportStep(0); setRefreshPrompt(false);
-    const interval = window.setInterval(() => setImportStep((step) => Math.min(step + 1, 4)), 1300);
+    const interval = window.setInterval(() => setImportStep((step) => Math.min(step + 1, importSteps.length - 2)), 1300);
     try {
       const response = await fetch("/api/football/match-import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixtureId, refresh }) });
       const data = await readResponse<FootballMatchImport>(response);
-      setImported(data); setHomeSelected(data.home.matches.map((match) => match.fixtureId)); setAwaySelected(data.away.matches.map((match) => match.fixtureId)); setImportStep(5);
+      setImported(data); setHomeSelected(data.home.matches.map((match) => match.fixtureId)); setAwaySelected(data.away.matches.map((match) => match.fixtureId)); setImportStep(importSteps.length - 1);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Nie udało się pobrać danych meczu."); setImportStep(-1);
     } finally { window.clearInterval(interval); }
@@ -191,8 +229,8 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
       <div className="match-import-modal">
         <header className="match-import-header"><Logo href="" /><div><p className="eyebrow">Import z API-Football</p><h2 className="text-xl font-black text-white">{imported ? "Sprawdź pobrane dane" : "Pobierz dane meczu"}</h2></div><button type="button" onClick={onClose} aria-label="Zamknij import">×</button></header>
         <div className="match-import-scroll">
-          {importStep >= 0 && importStep < 5 ? (
-            <div className="api-progress-panel"><div className="api-progress-bar"><span style={{ width: `${((importStep + 1) / importSteps.length) * 100}%` }} /></div><div className="mt-5 grid gap-3">{importSteps.map((step, index) => <div key={step} className={`api-progress-step ${index <= importStep ? "active" : ""}`}><span>{index < importStep ? "✓" : index + 1}</span><p>{step}</p></div>)}</div></div>
+          {importStep >= 0 && importStep < importSteps.length - 1 ? (
+            <div className="api-progress-panel" aria-live="polite"><div className="api-radar" aria-hidden="true"><span /></div><div className="mt-5 grid gap-3">{importSteps.map((step, index) => <div key={step} className={`api-progress-step ${index <= importStep ? "active" : ""}`}><span>{index < importStep ? "✓" : index + 1}</span><p>{step}</p></div>)}</div><p className="mt-5 text-xs leading-6 text-slate-500">Etapy pokazują aktualną fazę importu. Czas zależy od dostępności danych dostawcy.</p></div>
           ) : imported && selectedImport ? (
             <div className="space-y-5">
               <section className="api-review-section"><p className="eyebrow">Dane meczu</p><div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h3 className="text-2xl font-black text-white">{imported.fixture.homeTeam.name} vs {imported.fixture.awayTeam.name}</h3><p className="mt-2 text-sm text-slate-400">{imported.fixture.leagueName} · {formatDate(imported.fixture.kickoff)} {formatTime(imported.fixture.kickoff)} · {imported.fixture.venue || "brak stadionu"}</p></div><button type="button" className="btn-secondary" onClick={() => setRefreshPrompt(true)}>Odśwież dane</button></div></section>
@@ -200,8 +238,9 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
               <TeamMatches title={`Ostatnie mecze gospodarzy — ${imported.home.team.name}`} matches={imported.home.matches} selected={homeSelected} onToggle={(id) => toggle(homeSelected, setHomeSelected, id)} />
               <TeamMatches title={`Ostatnie mecze gości — ${imported.away.team.name}`} matches={imported.away.matches} selected={awaySelected} onToggle={(id) => toggle(awaySelected, setAwaySelected, id)} />
               <section className="api-review-section"><h3 className="text-xl font-black text-white">Podsumowanie statystyk</h3><div className="mt-4 grid gap-4 lg:grid-cols-2"><AggregateSummary title={imported.home.team.name} aggregate={selectedImport.home.aggregate} /><AggregateSummary title={imported.away.team.name} aggregate={selectedImport.away.aggregate} /></div></section>
+              <section className="api-review-section"><h3 className="text-xl font-black text-white">Kompletność danych i pokrycie statystyk</h3><p className="mt-2 text-sm leading-6 text-slate-400">Wartość 0/5 oznacza brak danych, nie wynik równy zero. Po odznaczeniu spotkania podsumowanie przelicza się automatycznie.</p><div className="mt-4 grid gap-4 lg:grid-cols-2"><CoverageSummary title={`Gospodarze · ${imported.home.team.name}`} aggregate={selectedImport.home.aggregate} /><CoverageSummary title={`Goście · ${imported.away.team.name}`} aggregate={selectedImport.away.aggregate} /></div></section>
               {selectedImport.warnings.length > 0 && <section className="api-warning"><h3 className="font-black">Ostrzeżenia o brakach danych</h3><ul className="mt-3 space-y-2">{selectedImport.warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul></section>}
-              <div className="api-odds-reminder">Uzupełnij aktualne kursy, aby obliczyć prawdopodobieństwo z kursu i edge.</div>
+              <div className="api-odds-reminder">Uzupełnij aktualne kursy, aby obliczyć prawdopodobieństwo wynikające z kursu, edge i Value Index.</div>
             </div>
           ) : (
             <div>
@@ -214,7 +253,7 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
           )}
           {error && <div className="studio-error" role="alert">{error}</div>}
         </div>
-        <footer className="match-import-footer"><button type="button" className="btn-secondary" onClick={onClose}>Anuluj</button>{selectedImport && <button type="button" className="btn-primary" disabled={!homeSelected.length || !awaySelected.length} onClick={() => onApply(selectedImport)}>Uzupełnij formularz</button>}</footer>
+        <footer className="match-import-footer"><button type="button" className="btn-secondary" onClick={onClose}>Anuluj</button>{selectedImport && <button type="button" className="btn-primary" onClick={() => onApply(selectedImport)}>Uzupełnij formularz</button>}</footer>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiFootballFixture } from "./types";
 
+vi.mock("server-only", () => ({}));
+
 const apiFootballRequestMock = vi.hoisted(() => vi.fn());
 vi.mock("./client", () => ({ apiFootballRequest: apiFootballRequestMock }));
 
@@ -12,7 +14,7 @@ function fixture(id: number, date: string, status: string): ApiFootballFixture {
       status: { short: status },
       venue: null,
     },
-    league: { id: 1, name: "Liga", country: "Polska", season: 2025 },
+    league: { id: 1, name: "Liga", country: "Polska" },
     teams: {
       home: { id: 7, name: "Gospodarze" },
       away: { id: 8, name: "Goście" },

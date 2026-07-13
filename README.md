@@ -1,98 +1,101 @@
 # AnalityQ
 
-AnalityQ to prywatne studio do ręcznego i wspomaganego przez API tworzenia sportowych raportów statystycznych oraz publiczna platforma z opublikowanymi analizami.
+AnalityQ to polska platforma raportów statystycznych oraz prywatne Studio do ręcznego i wspomaganego przez API przygotowywania analiz. Import nigdy nie zapisuje ani nie publikuje raportu automatycznie.
 
-## Konfiguracja Supabase
+## Instalacja i uruchomienie lokalne
 
-1. Utwórz projekt w Supabase.
-2. Wejdź w `SQL Editor`.
-3. Wklej zawartość pliku `supabase/schema.sql` i uruchom zapytanie.
-4. Skopiuj `Project URL` oraz `anon public key` z ustawień projektu.
-5. Utwórz plik `.env.local` w katalogu projektu.
-6. Wklej konfigurację:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-```
-
-7. Zainstaluj zależności:
+Wymagany jest Node.js 20.9 lub nowszy.
 
 ```bash
 npm install
-```
-
-8. Uruchom projekt:
-
-```bash
 npm run dev
 ```
 
-9. Wejdź na `/studio`.
-10. Dodaj analizę przez „Szybkie dodawanie” albo pełny formularz.
-11. Opublikuj analizę.
-12. Sprawdź publiczną listę pod `/analizy`.
+Aplikacja będzie dostępna pod adresem `http://localhost:3000`.
 
-## Integracja z API-Football
+## Konfiguracja Supabase
 
-Integracja korzysta z oficjalnego API-Football / API-Sports wyłącznie przez backend Next.js. Klucz nie jest wysyłany do przeglądarki ani zapisywany w Supabase.
+1. Utwórz projekt Supabase.
+2. W Supabase SQL Editor uruchom `supabase/schema.sql` tylko dla nowej bazy albo odpowiednią migrację z `supabase/migrations/` dla istniejącej bazy.
+3. Utwórz lokalny plik `.env.local` na podstawie `.env.example`.
+4. Uzupełnij `NEXT_PUBLIC_SUPABASE_URL` oraz `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+5. Dodaj serwerowy `SUPABASE_SERVICE_ROLE_KEY` dla chronionych operacji Studio i trwałego cache `api_cache`.
+6. Dodaj `STUDIO_PASSWORD` — hasło jest sprawdzane wyłącznie na serwerze.
 
-1. Załóż konto w API-Sports i aktywuj dostęp do Football API.
-2. Pobierz klucz API z panelu dostawcy.
-3. Dodaj do lokalnego pliku `.env.local`:
+`SUPABASE_SERVICE_ROLE_KEY` i `STUDIO_PASSWORD` są sekretami serwerowymi. Nie wolno dodawać im prefiksu `NEXT_PUBLIC_`, umieszczać ich w kodzie ani wysyłać do przeglądarki. Studio korzysta z podpisanej sesji w cookie `httpOnly`; publiczny klient Supabase może wyłącznie odczytywać opublikowane analizy.
+
+## Konfiguracja API-Football
+
+Integracja korzysta z API-Football / API-Sports wyłącznie przez endpointy Next.js.
 
 ```bash
-FOOTBALL_API_KEY=...
+FOOTBALL_API_KEY=
 FOOTBALL_API_BASE_URL=https://v3.football.api-sports.io
 ```
 
-4. Uruchom aplikację:
+W `.env.local` wpisz prawdziwy `FOOTBALL_API_KEY`. Klucz nie może mieć prefiksu `NEXT_PUBLIC_`. Gdy go brakuje, aplikacja nadal się uruchamia, testuje i buduje, a Studio wyświetla komunikat „Brakuje klucza API danych piłkarskich.”
+
+## Import meczu w Studio
+
+1. Otwórz ukryty panel `/studio` jedną z istniejących metod wejścia.
+2. Kliknij „Pobierz dane meczu”.
+3. Wybierz datę i kliknij „Pokaż mecze”.
+4. Filtruj listę po lidze lub drużynie i wybierz spotkanie.
+5. Poczekaj na pobranie maksymalnie pięciu zakończonych meczów gospodarzy i gości.
+6. Na ekranie „Sprawdź pobrane dane” skontroluj statystyki, ostrzeżenia, kompletność i `coverage`.
+7. Odznacz spotkania, których nie chcesz uwzględnić. Sumy, średnie i pokrycie przeliczą się natychmiast.
+8. Kliknij „Uzupełnij formularz”. Formularz otworzy sekcję kursów.
+9. Uzupełnij aktualne kursy ręcznie i popraw dowolne pobrane wartości.
+10. Zapisz raport jako szkic. Publikację wykonaj dopiero po ręcznym sprawdzeniu i potwierdzeniu.
+
+Najnowszy mecz znajduje się po lewej stronie zapisu formy `W,D,L`. Brakująca statystyka pozostaje `null`; nie jest traktowana jako zero.
+
+## Kursy
+
+Kursy pozostają ręczne. Aplikacja nie scrapuje Fortuny ani innych serwisów z kursami. Po ich wpisaniu model oblicza prawdopodobieństwo wynikające z kursu, edge i Value Index.
+
+## Testy i weryfikacja
 
 ```bash
-npm run dev
-```
-
-5. Wejdź do `/studio`.
-6. Kliknij „Pobierz dane meczu”.
-7. Wybierz datę, a następnie mecz.
-8. Sprawdź pobrane spotkania i odznacz te, których nie chcesz uwzględniać.
-9. Kliknij „Uzupełnij formularz”.
-10. Uzupełnij ręcznie aktualne kursy.
-11. Zapisz analizę jako szkic albo opublikuj ją po weryfikacji.
-
-Brakujące statystyki pozostają puste (`null`). Import nigdy nie publikuje analizy automatycznie.
-
-### Konfiguracja na Vercel
-
-W projekcie Vercel przejdź do `Settings` → `Environment Variables` i dodaj:
-
-- `FOOTBALL_API_KEY` — prywatny klucz API,
-- `FOOTBALL_API_BASE_URL` — `https://v3.football.api-sports.io`.
-
-Zmienne należy dodać co najmniej dla środowiska `Production`, a w razie potrzeby także dla `Preview` i `Development`. Po zmianie wykonaj nowy deployment. Nazwa klucza nie może mieć prefiksu `NEXT_PUBLIC_`.
-
-## Migracja źródła danych
-
-Przed zapisem pierwszej analizy pobranej z API uruchom w Supabase SQL Editor plik:
-
-```text
-supabase/migrations/add_data_source.sql
-```
-
-Migracja dodaje kolumnę `data_source` typu `jsonb` bez usuwania istniejących rekordów oraz przygotowuje opcjonalną tabelę `api_cache`. Aktualna integracja korzysta z cache serwerowego w pamięci: lista meczów jest przechowywana przez 20 minut, ostatnie mecze przez 45 minut, a statystyki zakończonych spotkań przez 24 godziny.
-
-## Kopia zapasowa i migracja
-
-Studio zapisuje główne dane w Supabase. Import i eksport JSON działa jako kopia zapasowa. Jeśli w przeglądarce są stare analizy z localStorage, panel „Migracja danych lokalnych” pozwala przenieść je do bazy online i dopiero osobnym przyciskiem wyczyścić lokalne kopie.
-
-## Uwaga produkcyjna
-
-Obecna blokada `/studio` hasłem w aplikacji jest zabezpieczeniem prototypowym. Docelowo panel administracyjny powinien korzystać z Supabase Auth, zabezpieczonych API routes i polityk RLS ograniczających zapis tylko do zalogowanego administratora.
-
-## Skrypty
-
-```bash
-npm run dev
 npm run lint
+npm test
 npm run build
 ```
+
+Testy Vitest mockują odpowiedzi dostawcy. Nie wykonują prawdziwych połączeń z API-Football ani zapisów do Supabase.
+
+## Migracje SQL
+
+Dla istniejącego projektu ręcznie uruchom kolejno odpowiednie migracje:
+
+- `supabase/migrations/add_data_source.sql` — rozszerzenie integracji danych,
+- `supabase/migrations/20260712103027_secure_analysis_rls.sql` — uszczelnienie publicznego dostępu.
+
+Migracje:
+
+- dodaje `analyses.data_source` typu `jsonb`, jeśli kolumna nie istnieje,
+- tworzy lub uzupełnia `api_cache`,
+- nie usuwa rekordów ani kolumn,
+- blokuje dostęp do cache dla `anon` i `authenticated`,
+- przyznaje dostęp do cache wyłącznie `service_role`,
+- odbiera `anon` możliwość tworzenia, edycji i usuwania analiz,
+- pozwala `anon` odczytywać wyłącznie rekordy ze statusem `published`.
+
+Migracji nie uruchamia aplikacja ani proces build.
+
+## Konfiguracja Vercel
+
+W `Settings → Environment Variables` dodaj ręcznie:
+
+- `NEXT_PUBLIC_SUPABASE_URL`,
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+- `SUPABASE_SERVICE_ROLE_KEY` — chronione operacje Studio i trwały cache,
+- `STUDIO_PASSWORD` — serwerowo weryfikowane hasło Studio,
+- `FOOTBALL_API_KEY`,
+- `FOOTBALL_API_BASE_URL=https://v3.football.api-sports.io`.
+
+Sekretów nie wpisuj do workflow CI. Zmiana zmiennych w Vercel i deployment nie są wykonywane automatycznie przez ten projekt.
+
+## Bezpieczeństwo Studio
+
+Ukryte metody wejścia i trasa `/studio` pozostają niezmienione. Hasło jest porównywane z `STUDIO_PASSWORD` po stronie serwera, a wszystkie operacje administracyjne przechodzą przez chronione Route Handlers i klienta service role. Wygaśnięcie sesji nie usuwa lokalnej kopii roboczej formularza.

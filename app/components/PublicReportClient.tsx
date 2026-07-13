@@ -78,6 +78,21 @@ function ProbabilityMetric({ label, value }: { label: string; value: NumericValu
   return <div className="probability-metric"><span>{label}</span><strong>{value === null ? "—" : `${value.toFixed(1)}%`}</strong></div>;
 }
 
+function coverageValue(match: MatchAnalysisRecord, key: "goals" | "shots" | "corners" | "cards" | "xg") {
+  const coverage = match.dataSource?.coverage;
+  if (!coverage) return "Brak metadanych";
+  const coverageKey = {
+    goals: "goalsForLast5",
+    shots: "shotsForLast5",
+    corners: "cornersForLast5",
+    cards: "cardsForLast5",
+    xg: "xgForLast5",
+  }[key] as keyof typeof coverage.home;
+  const available = (coverage.home[coverageKey] || 0) + (coverage.away[coverageKey] || 0);
+  const possible = match.dataSource!.includedHomeFixtures.length + match.dataSource!.includedAwayFixtures.length;
+  return `${available}/${possible} spotkań`;
+}
+
 export function PublicReportClient({ slug }: { slug: string }) {
   const [match, setMatch] = useState<MatchAnalysisRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -308,12 +323,21 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <p className="eyebrow">Transparentność raportu</p>
           <h2 className="mt-2 text-xl font-black text-white">Informacje o danych</h2>
           {match.dataSource?.provider ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="data-source-item"><span>Źródło danych</span><strong>{match.dataSource.provider}</strong></div>
-              <div className="data-source-item"><span>Ostatnie pobranie</span><strong>{match.dataSource.fetchedAt ? formatDate(match.dataSource.fetchedAt) : "Brak danych"}</strong></div>
-              <div className="data-source-item"><span>Spotkania gospodarzy</span><strong>{match.dataSource.includedHomeFixtures.length}</strong></div>
-              <div className="data-source-item"><span>Spotkania gości</span><strong>{match.dataSource.includedAwayFixtures.length}</strong></div>
-            </div>
+            <>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{match.dataSource.fetchedAt ? `Dane zaktualizowano ${formatDate(match.dataSource.fetchedAt)}.` : "Brak daty pobrania danych."} Analiza obejmuje {match.dataSource.includedHomeFixtures.length} ostatnich spotkań gospodarzy i {match.dataSource.includedAwayFixtures.length} ostatnich spotkań gości.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="data-source-item"><span>Źródło danych</span><strong>{match.dataSource.provider}</strong></div>
+                <div className="data-source-item"><span>Ostatnie pobranie</span><strong>{match.dataSource.fetchedAt ? formatDate(match.dataSource.fetchedAt) : "Brak danych"}</strong></div>
+                <div className="data-source-item"><span>Spotkania gospodarzy</span><strong>{match.dataSource.includedHomeFixtures.length}</strong></div>
+                <div className="data-source-item"><span>Spotkania gości</span><strong>{match.dataSource.includedAwayFixtures.length}</strong></div>
+                <div className="data-source-item"><span>Dostępność goli</span><strong>{coverageValue(match, "goals")}</strong></div>
+                <div className="data-source-item"><span>Dostępność strzałów</span><strong>{coverageValue(match, "shots")}</strong></div>
+                <div className="data-source-item"><span>Dostępność rzutów rożnych</span><strong>{coverageValue(match, "corners")}</strong></div>
+                <div className="data-source-item"><span>Dostępność kartek</span><strong>{coverageValue(match, "cards")}</strong></div>
+                <div className="data-source-item"><span>Dostępność xG</span><strong>{coverageValue(match, "xg")}</strong></div>
+                <div className="data-source-item"><span>Kompletność danych</span><strong>{metrics.dataCompleteness.percent}%</strong></div>
+              </div>
+            </>
           ) : (
             <p className="mt-3 text-sm leading-7 text-slate-400">Dane do tej analizy zostały wprowadzone ręcznie przez administratora.</p>
           )}

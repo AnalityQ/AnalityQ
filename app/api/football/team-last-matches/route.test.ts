@@ -17,6 +17,7 @@ describe("GET /api/football/team-last-matches", () => {
     const response = await GET(
       new Request(
         "http://localhost/api/football/team-last-matches?teamId=364&beforeDate=2026-07-13T19%3A00%3A00%2B02%3A00&limit=5",
+        { headers: { "x-forwarded-for": "test-missing-season" } },
       ),
     );
 
@@ -35,10 +36,11 @@ describe("GET /api/football/team-last-matches", () => {
     });
 
     const { GET } = await import("./route");
-    const beforeDate = "2026-07-13T19:00:00+02:00";
+    const beforeDate = "2026-07-13";
     const response = await GET(
       new Request(
-        "http://localhost/api/football/team-last-matches?teamId=364&season=2025&beforeDate=2026-07-13T19%3A00%3A00%2B02%3A00&limit=9&refresh=1",
+        "http://localhost/api/football/team-last-matches?teamId=364&season=2025&beforeDate=2026-07-13&limit=5",
+        { headers: { "x-forwarded-for": "test-valid-season" } },
       ),
     );
 
@@ -48,7 +50,7 @@ describe("GET /api/football/team-last-matches", () => {
       beforeDate,
       2025,
       5,
-      true,
+      false,
     );
   });
 });
