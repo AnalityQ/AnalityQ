@@ -11,6 +11,7 @@ vi.mock("@/lib/server/analysis-repository", () => {
     updateAdminAnalysis: vi.fn().mockImplementation(async (_id, analysis) => analysis),
     deleteAdminAnalysis: vi.fn().mockResolvedValue(undefined),
     setAdminPublicationStatus: vi.fn().mockImplementation(async (id, status) => ({ id, publicationStatus: status })),
+    setAdminFeaturedType: vi.fn().mockImplementation(async (id, featuredType) => ({ id, featuredType })),
     duplicateAdminAnalysis: vi.fn().mockImplementation(async (id) => ({ id: `copy-${id}` })),
     importAdminAnalyses: vi.fn().mockResolvedValue([]),
   };
@@ -82,6 +83,17 @@ describe("chronione endpointy Studio", () => {
     ));
   });
 
+  it("blokuje ustawienie meczu dnia bez sesji", async () => {
+    const { POST } = await import("./analyses/[id]/featured/route");
+    await expectUnauthorized(await POST(
+      new Request("http://localhost/api/studio/analyses/a/featured", {
+        method: "POST",
+        body: JSON.stringify({ featuredType: "match_of_the_day" }),
+      }),
+      { params: Promise.resolve({ id: "a" }) },
+    ));
+  });
+
   it("traktuje uszkodzone cookie jak brak sesji", async () => {
     const { POST } = await import("./analyses/route");
     await expectUnauthorized(await POST(new Request("http://localhost/api/studio/analyses", {
@@ -111,6 +123,25 @@ describe("chronione endpointy Studio", () => {
     expect(response.status).toBe(201);
     expect(repository.createAdminAnalysis).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toMatchObject({ data: { id: "allowed" } });
+  });
+
+  it("poprawna sesja pozwala ustawić mecz dnia", async () => {
+    const repository = await import("@/lib/server/analysis-repository");
+    const { POST } = await import("./analyses/[id]/featured/route");
+    const response = await POST(
+      new Request("http://localhost/api/studio/analyses/a/featured", {
+        method: "POST",
+        headers: await authenticatedHeaders(),
+        body: JSON.stringify({ featuredType: "match_of_the_day" }),
+      }),
+      { params: Promise.resolve({ id: "a" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(repository.setAdminFeaturedType).toHaveBeenCalledWith("a", "match_of_the_day");
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "a", featuredType: "match_of_the_day" },
+    });
   });
 
   it("logowanie ustawia httpOnly cookie, a wylogowanie je usuwa", async () => {

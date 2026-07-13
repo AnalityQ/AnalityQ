@@ -14,6 +14,7 @@ import {
   getAllAnalyses,
   getStudioDatabaseErrorMessage,
   publishAnalysis,
+  setFeaturedAnalysis,
   unpublishAnalysis,
   updateAnalysis,
 } from "@/lib/database";
@@ -96,6 +97,10 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   }), [completeness, measured, query, risk, sort, tab]);
 
   const freeSlots = useMemo(() => Array.from({ length: 20 }, (_, index) => index + 1).filter((slot) => !matches.some((match) => match.slotNumber === slot)), [matches]);
+  const featuredMatch = useMemo(
+    () => matches.find((match) => match.featuredType === "match_of_the_day") ?? null,
+    [matches],
+  );
 
   function openEditor(mode: AnalysisEditorMode, slotNumber?: number) {
     const slot = slotNumber ?? getNextFreeSlot(matches);
@@ -170,6 +175,17 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  async function handleFeatured(id: string, featured: boolean) {
+    try {
+      await setFeaturedAnalysis(id, featured ? "match_of_the_day" : null);
+      setToast(featured ? "Ustawiono nowy mecz dnia." : "Usunięto oznaczenie meczu dnia.");
+      await loadMatches();
+    } catch (error) {
+      setErrorMessage(getStudioDatabaseErrorMessage(error));
+      setToast("Nie udało się zmienić meczu dnia.");
+    }
+  }
+
   async function handleDelete(id: string) {
     if (!window.confirm("Czy na pewno chcesz usunąć tę analizę? Tej operacji nie można cofnąć.")) return;
     try {
@@ -200,6 +216,13 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       {loading && <div className="studio-message">Ładowanie analiz…</div>}
       {errorMessage && <div className="studio-error" role="alert">{errorMessage}</div>}
 
+      <div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm text-amber-50">
+        <strong>Mecz dnia:</strong>{" "}
+        {featuredMatch
+          ? `${featuredMatch.basic.homeTeam || "Gospodarz"} – ${featuredMatch.basic.awayTeam || "Gość"}`
+          : "brak ręcznego wyboru — strona główna pokaże najbliższą opublikowaną analizę."}
+      </div>
+
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Wszystkie analizy" value={String(stats.all)} note={`${stats.freeSlots} wolnych slotów`} tone="cyan" />
         <MetricCard label="Szkice / opublikowane" value={`${stats.draft} / ${stats.published}`} note={`${stats.archived} w archiwum`} />
@@ -209,7 +232,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
       <div className="mt-8"><StudioFilters tab={tab} query={query} sort={sort} risk={risk} completeness={completeness} onTab={setTab} onQuery={setQuery} onSort={setSort} onRisk={setRisk} onCompleteness={setCompleteness} /></div>
 
-      {filtered.length ? <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map(({ match }) => <StudioAnalysisCard key={match.id} match={match} onEdit={(analysis) => setEditor({ analysis, mode: "full" })} onDelete={(id) => void handleDelete(id)} onDuplicate={(id) => void handleDuplicate(id)} onStatus={(id, status) => void handleStatus(id, status)} />)}</div> : !loading && <div className="studio-message mt-6">Brak analiz pasujących do wybranych filtrów.</div>}
+      {filtered.length ? <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map(({ match }) => <StudioAnalysisCard key={match.id} match={match} onEdit={(analysis) => setEditor({ analysis, mode: "full" })} onDelete={(id) => void handleDelete(id)} onDuplicate={(id) => void handleDuplicate(id)} onStatus={(id, status) => void handleStatus(id, status)} onFeatured={(id, featured) => void handleFeatured(id, featured)} />)}</div> : !loading && <div className="studio-message mt-6">Brak analiz pasujących do wybranych filtrów.</div>}
 
       {freeSlots.length > 0 && (
         <div className="mt-10 rounded-3xl border border-dashed border-cyan-200/20 bg-cyan-200/[0.035] p-5">

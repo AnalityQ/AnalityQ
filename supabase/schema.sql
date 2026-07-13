@@ -14,6 +14,7 @@ create table if not exists public.analyses (
   source_mode text default 'manual',
   data_source jsonb,
   publication_status text default 'draft',
+  featured_type text,
   basic jsonb,
   manual_stats jsonb,
   odds jsonb,
@@ -23,10 +24,30 @@ create table if not exists public.analyses (
   premium_sections jsonb
 );
 
+alter table public.analyses add column if not exists featured_type text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'analyses_featured_type_check'
+      and conrelid = 'public.analyses'::regclass
+  ) then
+    alter table public.analyses
+      add constraint analyses_featured_type_check
+      check (featured_type is null or featured_type = 'match_of_the_day');
+  end if;
+end
+$$;
+
 create index if not exists analyses_publication_status_idx on public.analyses (publication_status);
 create index if not exists analyses_slug_idx on public.analyses (slug);
 create index if not exists analyses_slot_number_idx on public.analyses (slot_number);
 create index if not exists analyses_created_at_idx on public.analyses (created_at);
+create index if not exists analyses_featured_type_idx on public.analyses (featured_type);
+create unique index if not exists analyses_single_match_of_the_day_idx
+  on public.analyses (featured_type)
+  where featured_type = 'match_of_the_day';
 
 create table if not exists public.api_cache (
   cache_key text primary key,

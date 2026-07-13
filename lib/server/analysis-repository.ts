@@ -13,7 +13,7 @@ import {
   getNextFreeSlot,
   normalizeAnalysis,
 } from "@/lib/storage";
-import type { MatchAnalysisRecord, PublicationStatus } from "@/lib/types";
+import type { FeaturedType, MatchAnalysisRecord, PublicationStatus } from "@/lib/types";
 import { getAdminSupabase } from "./supabase-admin";
 
 export class AnalysisRepositoryError extends Error {
@@ -98,14 +98,60 @@ export async function deleteAdminAnalysis(id: string) {
 }
 
 export async function setAdminPublicationStatus(id: string, status: PublicationStatus) {
+  const update = status === "published"
+    ? { publication_status: status, updated_at: currentIso() }
+    : { publication_status: status, featured_type: null, updated_at: currentIso() };
   const { data, error } = await getAdminSupabase()
     .from("analyses")
-    .update({ publication_status: status, updated_at: currentIso() })
+    .update(update)
     .eq("id", id)
     .select("*")
     .single();
 
   if (error || !data) repositoryError("Nie udało się zmienić statusu publikacji.");
+  return rowToAnalysis(data as AnalysisRow);
+}
+
+export async function setAdminFeaturedType(id: string, featuredType: FeaturedType) {
+  const supabase = getAdminSupabase();
+
+  if (featuredType === null) {
+    const { data, error } = await supabase
+      .from("analyses")
+      .update({ featured_type: null, updated_at: currentIso() })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error || !data) repositoryError("Nie udało się usunąć oznaczenia meczu dnia.");
+    return rowToAnalysis(data as AnalysisRow);
+  }
+
+  const { data: target, error: targetError } = await supabase
+    .from("analyses")
+    .select("id, publication_status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (targetError || !target) repositoryError("Nie znaleziono analizy.");
+  if (target.publication_status !== "published") {
+    repositoryError("Meczem dnia może zostać wyłącznie opublikowana analiza.");
+  }
+
+  const { error: clearError } = await supabase
+    .from("analyses")
+    .update({ featured_type: null, updated_at: currentIso() })
+    .eq("featured_type", "match_of_the_day");
+  if (clearError) repositoryError("Nie udało się zmienić meczu dnia.");
+
+  const { data, error } = await supabase
+    .from("analyses")
+    .update({ featured_type: "match_of_the_day", updated_at: currentIso() })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error || !data) repositoryError("Nie udało się ustawić meczu dnia.");
   return rowToAnalysis(data as AnalysisRow);
 }
 
@@ -126,6 +172,7 @@ export async function duplicateAdminAnalysis(id: string) {
     createdAt: "",
     updatedAt: "",
     publicationStatus: "draft",
+    featuredType: null,
     basic: { ...source.basic },
     manualStats: {
       home: { ...source.manualStats.home },

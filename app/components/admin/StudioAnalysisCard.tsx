@@ -20,12 +20,14 @@ export function StudioAnalysisCard({
   onDelete,
   onDuplicate,
   onStatus,
+  onFeatured,
 }: {
   match: MatchAnalysisRecord;
   onEdit: (match: MatchAnalysisRecord) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onStatus: (id: string, status: PublicationStatus) => void;
+  onFeatured: (id: string, featured: boolean) => void;
 }) {
   const metrics = calculateFullReportMetrics(match);
   const snapshot = match.dataSource?.snapshot;
@@ -33,7 +35,14 @@ export function StudioAnalysisCard({
     <article className="studio-analysis-card">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3"><LeagueLogo src={snapshot?.fixture.leagueLogo} alt={match.basic.league || "Rozgrywki"} size={36} /><div className="min-w-0"><p className="text-xs font-black text-cyan-100">Slot {String(match.slotNumber).padStart(2, "0")}</p><p className="mt-1 truncate text-sm text-slate-400">{match.basic.league || "Liga nieuzupełniona"}</p></div></div>
-        <PublicationBadge status={match.publicationStatus} />
+        <div className="flex flex-col items-end gap-2">
+          <PublicationBadge status={match.publicationStatus} />
+          {match.featuredType === "match_of_the_day" && (
+            <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-200">
+              Mecz dnia
+            </span>
+          )}
+        </div>
       </div>
       <div className="studio-card-teams"><div><TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={match.basic.homeTeam || "Gospodarz"} size={36} /><strong>{match.basic.homeTeam || "Gospodarz"}</strong></div><span>vs</span><div><TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={match.basic.awayTeam || "Gość"} size={36} /><strong>{match.basic.awayTeam || "Gość"}</strong></div></div>
       <p className="mt-2 text-sm font-semibold text-cyan-100">{formatDate(match.basic.kickoff)}</p>
@@ -49,6 +58,14 @@ export function StudioAnalysisCard({
         <button type="button" onClick={() => onEdit(match)}>Edytuj</button>
         <Link href={`/analizy/${match.slug}`}>Otwórz raport</Link>
         {match.publicationStatus === "published" ? <button type="button" onClick={() => onStatus(match.id, "draft")}>Cofnij publikację</button> : <button type="button" onClick={() => onStatus(match.id, "published")}>Opublikuj</button>}
+        {match.publicationStatus === "published" && (
+          <button
+            type="button"
+            onClick={() => onFeatured(match.id, match.featuredType !== "match_of_the_day")}
+          >
+            {match.featuredType === "match_of_the_day" ? "Usuń mecz dnia" : "Ustaw jako mecz dnia"}
+          </button>
+        )}
         {match.publicationStatus !== "archived" && <button type="button" onClick={() => onStatus(match.id, "archived")}>Zarchiwizuj</button>}
         <button type="button" onClick={() => onDuplicate(match.id)}>Duplikuj</button>
         <button type="button" className="danger" onClick={() => onDelete(match.id)}>Usuń</button>

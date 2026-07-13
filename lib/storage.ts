@@ -66,6 +66,7 @@ export function createEmptyAnalysis(slotNumber: number): MatchAnalysisRecord {
     sourceMode: "manual",
     dataSource: null,
     publicationStatus: "draft",
+    featuredType: null,
     basic: {
       league: "",
       country: "",
@@ -183,6 +184,7 @@ export function normalizeAnalysis(analysis: MatchAnalysisRecord, existing: Match
       ...analysis.premiumSections,
     },
     sourceMode: (["manual", "api", "mixed"].includes(analysis.sourceMode) ? analysis.sourceMode : "manual") as SourceMode,
+    featuredType: analysis.featuredType === "match_of_the_day" ? "match_of_the_day" : null,
     dataSource: analysis.dataSource
       ? {
           provider: "API-Football",

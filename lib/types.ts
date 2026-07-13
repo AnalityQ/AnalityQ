@@ -1,6 +1,7 @@
 import type { FootballAnalysisSnapshot } from "./football-api/types";
 
 export type PublicationStatus = "draft" | "published" | "archived";
+export type FeaturedType = "match_of_the_day" | null;
 export type AccessStatus = "free" | "premium";
 export type DataLevel = "basic" | "advanced";
 export type RiskLevel = "auto" | "low" | "medium" | "high";
@@ -107,6 +108,7 @@ export type MatchAnalysisRecord = {
   sourceMode: SourceMode;
   dataSource: AnalysisDataSource | null;
   publicationStatus: PublicationStatus;
+  featuredType: FeaturedType;
   basic: AnalysisBasic;
   manualStats: {
     home: TeamManualStats;

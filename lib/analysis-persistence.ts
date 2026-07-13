@@ -7,6 +7,7 @@ import type {
   MarketNumbers,
   MatchAnalysisRecord,
   PremiumSections,
+  FeaturedType,
   PublicationStatus,
   SourceMode,
   UserProbabilities,
@@ -21,6 +22,7 @@ export type AnalysisRow = {
   source_mode: SourceMode | string | null;
   data_source: AnalysisDataSource | null;
   publication_status: PublicationStatus | string | null;
+  featured_type: FeaturedType | string | null;
   basic: Partial<AnalysisBasic> | null;
   manual_stats: Partial<MatchAnalysisRecord["manualStats"]> | null;
   odds: Partial<MarketNumbers> | null;
@@ -36,6 +38,7 @@ export type AnalysisInsertPayload = {
   source_mode: SourceMode;
   data_source: AnalysisDataSource | null;
   publication_status: PublicationStatus;
+  featured_type: FeaturedType;
   basic: AnalysisBasic;
   manual_stats: MatchAnalysisRecord["manualStats"];
   odds: MarketNumbers;
@@ -60,6 +63,7 @@ export function rowToAnalysis(row: AnalysisRow): MatchAnalysisRecord {
     sourceMode: (row.source_mode || "manual") as SourceMode,
     dataSource: row.data_source || null,
     publicationStatus: (row.publication_status || "draft") as PublicationStatus,
+    featuredType: row.featured_type === "match_of_the_day" ? "match_of_the_day" : null,
     basic: row.basic || {},
     manualStats: row.manual_stats || {},
     odds: row.odds || {},
@@ -83,6 +87,7 @@ export function toAnalysisPayload(analysis: MatchAnalysisRecord): AnalysisInsert
     source_mode: analysis.sourceMode,
     data_source: analysis.dataSource,
     publication_status: analysis.publicationStatus,
+    featured_type: analysis.featuredType,
     basic: analysis.basic,
     manual_stats: analysis.manualStats,
     odds: analysis.odds,

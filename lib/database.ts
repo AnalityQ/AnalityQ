@@ -3,7 +3,7 @@
 import { rowToAnalysis, type AnalysisRow } from "./analysis-persistence";
 import { studioSessionExpiredEvent } from "./studio-auth";
 import { supabase, supabaseMissingConfigMessage } from "./supabase";
-import type { MatchAnalysisRecord, PublicationStatus } from "./types";
+import type { FeaturedType, MatchAnalysisRecord, PublicationStatus } from "./types";
 
 export const databaseChangeEvent = "analityq-database";
 export const databaseFetchErrorMessage =
@@ -179,6 +179,18 @@ export function restoreAnalysis(id: string) {
 
 export function archiveAnalysis(id: string) {
   return updatePublicationStatus(id, "archived");
+}
+
+export async function setFeaturedAnalysis(id: string, featuredType: FeaturedType) {
+  const saved = await studioRequest<MatchAnalysisRecord>(
+    `/api/studio/analyses/${encodeURIComponent(id)}/featured`,
+    {
+      method: "POST",
+      body: JSON.stringify({ featuredType }),
+    },
+  );
+  notifyDatabaseChange();
+  return saved;
 }
 
 export async function duplicateAnalysis(id: string) {
