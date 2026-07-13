@@ -1,3 +1,5 @@
+import type { FootballAnalysisSnapshot } from "./football-api/types";
+
 export type PublicationStatus = "draft" | "published" | "archived";
 export type AccessStatus = "free" | "premium";
 export type DataLevel = "basic" | "advanced";
@@ -93,6 +95,7 @@ export type AnalysisDataSource = {
     home: AnalysisStatCoverage;
     away: AnalysisStatCoverage;
   };
+  snapshot?: FootballAnalysisSnapshot;
 };
 
 export type MatchAnalysisRecord = {

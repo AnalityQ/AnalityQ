@@ -41,7 +41,7 @@ W `.env.local` wpisz prawdziwy `FOOTBALL_API_KEY`. Klucz nie może mieć prefiks
 2. Kliknij „Pobierz dane meczu”.
 3. Wybierz datę i kliknij „Pokaż mecze”.
 4. Filtruj listę po lidze lub drużynie i wybierz spotkanie.
-5. Poczekaj na pobranie maksymalnie pięciu zakończonych meczów gospodarzy i gości.
+5. Poczekaj na pobranie sezonowych danych obu drużyn, ich podział na próby ogółem oraz dom/wyjazd i uzupełnienie sekcji opcjonalnych.
 6. Na ekranie „Sprawdź pobrane dane” skontroluj statystyki, ostrzeżenia, kompletność i `coverage`.
 7. Odznacz spotkania, których nie chcesz uwzględnić. Sumy, średnie i pokrycie przeliczą się natychmiast.
 8. Kliknij „Uzupełnij formularz”. Formularz otworzy sekcję kursów.
@@ -52,7 +52,7 @@ Najnowszy mecz znajduje się po lewej stronie zapisu formy `W,D,L`. Brakująca s
 
 ## Kursy
 
-Kursy pozostają ręczne. Aplikacja nie scrapuje Fortuny ani innych serwisów z kursami. Po ich wpisaniu model oblicza prawdopodobieństwo wynikające z kursu, edge i Value Index.
+Kursy wpisane ręcznie przez administratora mają pierwszeństwo. Dostępne kursy API-Football są zapisywane w snapshotcie jako kontekst i nie nadpisują ręcznej korekty. Aplikacja nie scrapuje Fortuny ani innych serwisów z kursami. Po wpisaniu kursów model oblicza prawdopodobieństwo wynikające z kursu, edge i Value Index.
 
 ## Testy i weryfikacja
 

@@ -1,5 +1,5 @@
 import type { MatchAnalysisRecord, TeamManualStats } from "../types";
-import { aggregateLastMatches, aggregateWarnings } from "./aggregate";
+import { aggregateLastMatches, aggregateWarnings, summarizeTeamSample } from "./aggregate";
 import type { AggregatedLastMatches, FootballMatchImport } from "./types";
 
 function toManualStats(aggregate: AggregatedLastMatches): TeamManualStats {
@@ -50,6 +50,22 @@ export function selectImportMatches(
     ...imported,
     home: { ...imported.home, matches: homeMatches, aggregate: homeAggregate },
     away: { ...imported.away, matches: awayMatches, aggregate: awayAggregate },
+    snapshot: {
+      ...imported.snapshot,
+      warnings: [...new Set([...imported.snapshot.warnings, ...selectionWarnings])],
+      recentForm: {
+        home: {
+          ...imported.snapshot.recentForm.home,
+          matches: homeMatches,
+          summary: summarizeTeamSample(homeMatches),
+        },
+        away: {
+          ...imported.snapshot.recentForm.away,
+          matches: awayMatches,
+          summary: summarizeTeamSample(awayMatches),
+        },
+      },
+    },
     warnings: [...new Set([...imported.warnings, ...selectionWarnings])],
   };
 }
@@ -75,7 +91,7 @@ export function applyFootballImportToAnalysis(
     basic: {
       ...analysis.basic,
       league: imported.fixture.leagueName,
-      country: imported.fixture.leagueCountry,
+      country: imported.snapshot.fixture.countryName || imported.fixture.leagueCountry,
       homeTeam: imported.fixture.homeTeam.name,
       awayTeam: imported.fixture.awayTeam.name,
       kickoff: imported.fixture.kickoff.slice(0, 16),
@@ -99,6 +115,7 @@ export function applyFootballImportToAnalysis(
         home: toAnalysisCoverage(imported.home.aggregate),
         away: toAnalysisCoverage(imported.away.aggregate),
       },
+      snapshot: imported.snapshot,
     },
   };
 }

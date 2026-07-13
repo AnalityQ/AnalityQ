@@ -4,6 +4,7 @@ import { generateModelSummary } from "@/lib/reportText";
 import type { MatchAnalysisRecord } from "@/lib/types";
 import { ConfidenceBadge, getRiskLabel, RiskBadge, StatusBadge } from "./Badges";
 import { DataCompletenessBar } from "./DataCompletenessBar";
+import { CountryLabel, LeagueLogo, TeamLogo } from "./ApiImage";
 
 function formatKickoff(value: string) {
   if (!value) return "brak daty";
@@ -20,22 +21,28 @@ function formatKickoff(value: string) {
 export function MatchCard({ match }: { match: MatchAnalysisRecord }) {
   const metrics = calculateFullReportMetrics(match);
   const summary = match.notes.summary.trim() || generateModelSummary(match, metrics);
+  const snapshot = match.dataSource?.snapshot;
 
   return (
     <article className="match-card card-hover">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-slate-400">{match.basic.league || "Liga nieuzupełniona"}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={match.basic.league || "Rozgrywki"} size={38} />
+          <div className="min-w-0">
+          <p className="truncate text-sm text-slate-400">{match.basic.league || "Liga nieuzupełniona"}</p>
           <p className="mt-1 text-sm font-semibold text-cyan-100">{formatKickoff(match.basic.kickoff)}</p>
+          {snapshot && <CountryLabel code={snapshot.fixture.countryCode} name={snapshot.fixture.countryName} />}
+          </div>
         </div>
         <StatusBadge status={match.basic.status} />
       </div>
 
       <div className="mt-6">
-        <h3 className="text-xl font-black text-white">
-          {match.basic.homeTeam || "Gospodarz"} <span className="text-slate-500">vs</span>{" "}
-          {match.basic.awayTeam || "Gość"}
-        </h3>
+        <div className="match-card-teams">
+          <div><TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={match.basic.homeTeam || "Gospodarz"} size={42} /><h3>{match.basic.homeTeam || "Gospodarz"}</h3></div>
+          <span>vs</span>
+          <div><TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={match.basic.awayTeam || "Gość"} size={42} /><h3>{match.basic.awayTeam || "Gość"}</h3></div>
+        </div>
         <p className="mt-3 line-clamp-3 min-h-16 text-sm leading-6 text-slate-400">
           {summary}
         </p>

@@ -21,8 +21,19 @@ globalCache.__analityqFootballCache = cache;
 export const footballCacheTtl = {
   fixturesByDate: 15 * 60 * 1000,
   teamLastFixtures: 60 * 60 * 1000,
+  teamSeasonFixtures: 60 * 60 * 1000,
   fixtureStatistics: 24 * 60 * 60 * 1000,
+  fixtureHistoryBundle: 7 * 24 * 60 * 60 * 1000,
+  fixtureEvents: 24 * 60 * 60 * 1000,
+  fixturePlayers: 24 * 60 * 60 * 1000,
+  fixtureLineups: 15 * 60 * 1000,
   fixtureDetails: 30 * 60 * 1000,
+  standings: 60 * 60 * 1000,
+  teamStatistics: 12 * 60 * 60 * 1000,
+  injuries: 45 * 60 * 1000,
+  headToHead: 7 * 24 * 60 * 60 * 1000,
+  predictions: 60 * 60 * 1000,
+  odds: 10 * 60 * 1000,
   teamSearch: 60 * 60 * 1000,
 } as const;
 

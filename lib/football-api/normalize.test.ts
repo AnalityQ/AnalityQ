@@ -11,6 +11,12 @@ function fixture(homeGoals: number | null, awayGoals: number | null): ApiFootbal
       away: { id: 20, name: "Goście", logo: "away.png" },
     },
     goals: { home: homeGoals, away: awayGoals },
+    score: { halftime: { home: 1, away: 0 }, fulltime: { home: homeGoals, away: awayGoals } },
+    events: [
+      { time: { elapsed: 14 }, team: { id: 10, name: "Gospodarze" }, type: "Goal", detail: "Normal Goal" },
+      { time: { elapsed: 32 }, team: { id: 10, name: "Gospodarze" }, type: "Card", detail: "Yellow Card" },
+      { time: { elapsed: 68 }, team: { id: 10, name: "Gospodarze" }, type: "Card", detail: "Yellow Card" },
+    ],
   };
 }
 
@@ -19,7 +25,11 @@ const statistics: ApiFootballTeamStatistics[] = [
     { type: "Total Shots", value: 12 }, { type: "Shots on Goal", value: "5" },
     { type: "Corner Kicks", value: 7 }, { type: "Yellow Cards", value: 2 },
     { type: "Red Cards", value: null }, { type: "Ball Possession", value: "57%" },
-    { type: "expected_goals", value: "1.64" },
+    { type: "expected_goals", value: "1.64" }, { type: "Shots off Goal", value: 4 },
+    { type: "Blocked Shots", value: 3 }, { type: "Shots insidebox", value: 8 },
+    { type: "Shots outsidebox", value: 4 }, { type: "Goalkeeper Saves", value: 2 },
+    { type: "Total passes", value: 440 }, { type: "Passes accurate", value: 382 },
+    { type: "Passes %", value: "87%" }, { type: "goals_prevented", value: "0.71" },
   ] },
   { team: { id: 20, name: "Goście" }, statistics: [
     { type: "Shots Total", value: 8 }, { type: "Shots on Target", value: 2 },
@@ -42,8 +52,20 @@ describe("normalizeFixtureStatistics", () => {
       shotsOnTargetFor: 5,
       possessionFor: 57,
       xgFor: 1.64,
+      shotsOffTargetFor: 4,
+      blockedShotsFor: 3,
+      shotsInsideBoxFor: 8,
+      goalkeeperSavesFor: 2,
+      passAccuracyFor: 87,
+      halftimeGoalsFor: 1,
+      cardsFirstHalfFor: 1,
+      cardsSecondHalfFor: 1,
+      firstGoal: "scored",
       result: "W",
     });
+    expect(result.additionalStatistics.team).toEqual([
+      expect.objectContaining({ label: "goals_prevented", value: 0.71 }),
+    ]);
   });
 
   it("odwraca strony dla gości i rozpoznaje D oraz L", () => {

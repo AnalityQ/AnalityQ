@@ -10,14 +10,16 @@ import type {
   NormalizedTeamMatchStats,
 } from "@/lib/football-api/types";
 import { Logo } from "../Logo";
+import { LeagueLogo, TeamLogo } from "../ApiImage";
 
 const importSteps = [
   "Łączenie ze źródłem danych…",
   "Pobieranie danych meczu…",
   "Analiza gospodarzy…",
   "Analiza gości…",
-  "Pobieranie statystyk spotkań…",
-  "Normalizacja danych…",
+  "Pobieranie historii i statystyk spotkań…",
+  "Pobieranie tabeli, H2H, składów i absencji…",
+  "Normalizacja danych i budowa sygnałów…",
   "Dane gotowe do sprawdzenia.",
 ];
 
@@ -63,23 +65,18 @@ async function readResponse<T>(response: Response): Promise<T> {
   return payload.data;
 }
 
-function ApiLogo({ url, label }: { url?: string | null; label: string }) {
-  if (!url) return <span className="api-logo api-logo-fallback" aria-hidden="true">{label.slice(0, 1)}</span>;
-  return <span className="api-logo" role="img" aria-label={label} style={{ backgroundImage: `url(${url})` }} />;
-}
-
 function FixtureCard({ fixture, onSelect }: { fixture: FootballFixtureSummary; onSelect: () => void }) {
   return (
     <article className="api-fixture-card">
       <div className="flex items-center gap-3">
-        <ApiLogo url={fixture.leagueLogo} label={fixture.leagueName} />
+        <LeagueLogo src={fixture.leagueLogo} alt={fixture.leagueName} size={34} />
         <div className="min-w-0"><p className="truncate text-sm font-black text-white">{fixture.leagueName}</p><p className="truncate text-xs text-slate-400">{fixture.leagueCountry}</p></div>
         <span className="ml-auto rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[.65rem] font-black text-slate-300">{fixture.status}</span>
       </div>
       <div className="mt-4 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
         <strong className="row-span-2 text-lg text-cyan-100">{formatTime(fixture.kickoff)}</strong>
-        <div className="flex items-center gap-2"><ApiLogo url={fixture.homeTeam.logo} label={fixture.homeTeam.name} /><span className="font-bold text-white">{fixture.homeTeam.name}</span></div>
-        <div className="flex items-center gap-2"><ApiLogo url={fixture.awayTeam.logo} label={fixture.awayTeam.name} /><span className="font-bold text-white">{fixture.awayTeam.name}</span></div>
+        <div className="flex items-center gap-2"><TeamLogo src={fixture.homeTeam.logo} alt={fixture.homeTeam.name} size={34} /><span className="font-bold text-white">{fixture.homeTeam.name}</span></div>
+        <div className="flex items-center gap-2"><TeamLogo src={fixture.awayTeam.logo} alt={fixture.awayTeam.name} size={34} /><span className="font-bold text-white">{fixture.awayTeam.name}</span></div>
       </div>
       {fixture.venue && <p className="mt-3 text-xs text-slate-500">{fixture.venue}</p>}
       <button type="button" className="btn-primary mt-4 w-full justify-center" onClick={onSelect}>Wybierz mecz</button>
@@ -233,12 +230,13 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
             <div className="api-progress-panel" aria-live="polite"><div className="api-radar" aria-hidden="true"><span /></div><div className="mt-5 grid gap-3">{importSteps.map((step, index) => <div key={step} className={`api-progress-step ${index <= importStep ? "active" : ""}`}><span>{index < importStep ? "✓" : index + 1}</span><p>{step}</p></div>)}</div><p className="mt-5 text-xs leading-6 text-slate-500">Etapy pokazują aktualną fazę importu. Czas zależy od dostępności danych dostawcy.</p></div>
           ) : imported && selectedImport ? (
             <div className="space-y-5">
-              <section className="api-review-section"><p className="eyebrow">Dane meczu</p><div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h3 className="text-2xl font-black text-white">{imported.fixture.homeTeam.name} vs {imported.fixture.awayTeam.name}</h3><p className="mt-2 text-sm text-slate-400">{imported.fixture.leagueName} · {formatDate(imported.fixture.kickoff)} {formatTime(imported.fixture.kickoff)} · {imported.fixture.venue || "brak stadionu"}</p></div><button type="button" className="btn-secondary" onClick={() => setRefreshPrompt(true)}>Odśwież dane</button></div></section>
+              <section className="api-review-section"><p className="eyebrow">Dane meczu</p><div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><div className="flex flex-wrap items-center gap-3"><TeamLogo src={imported.fixture.homeTeam.logo} alt={imported.fixture.homeTeam.name} size={48} /><h3 className="text-2xl font-black text-white">{imported.fixture.homeTeam.name} vs {imported.fixture.awayTeam.name}</h3><TeamLogo src={imported.fixture.awayTeam.logo} alt={imported.fixture.awayTeam.name} size={48} /></div><p className="mt-2 text-sm text-slate-400">{imported.fixture.leagueName} · {formatDate(imported.fixture.kickoff)} {formatTime(imported.fixture.kickoff)} · {imported.fixture.venue || "stadion nie został podany przez API-Football"}</p></div><button type="button" className="btn-secondary" onClick={() => setRefreshPrompt(true)}>Odśwież dane</button></div></section>
               {refreshPrompt && <div className="api-warning"><strong>Odświeżenie pominie cache i zużyje kolejne zapytania API.</strong><div className="mt-3 flex gap-2"><button type="button" className="btn-primary" onClick={() => void loadImport(imported.fixture.id, true)}>Odśwież mimo to</button><button type="button" className="btn-secondary" onClick={() => setRefreshPrompt(false)}>Anuluj</button></div></div>}
               <TeamMatches title={`Ostatnie mecze gospodarzy — ${imported.home.team.name}`} matches={imported.home.matches} selected={homeSelected} onToggle={(id) => toggle(homeSelected, setHomeSelected, id)} />
               <TeamMatches title={`Ostatnie mecze gości — ${imported.away.team.name}`} matches={imported.away.matches} selected={awaySelected} onToggle={(id) => toggle(awaySelected, setAwaySelected, id)} />
               <section className="api-review-section"><h3 className="text-xl font-black text-white">Podsumowanie statystyk</h3><div className="mt-4 grid gap-4 lg:grid-cols-2"><AggregateSummary title={imported.home.team.name} aggregate={selectedImport.home.aggregate} /><AggregateSummary title={imported.away.team.name} aggregate={selectedImport.away.aggregate} /></div></section>
               <section className="api-review-section"><h3 className="text-xl font-black text-white">Kompletność danych i pokrycie statystyk</h3><p className="mt-2 text-sm leading-6 text-slate-400">Wartość 0/5 oznacza brak danych, nie wynik równy zero. Po odznaczeniu spotkania podsumowanie przelicza się automatycznie.</p><div className="mt-4 grid gap-4 lg:grid-cols-2"><CoverageSummary title={`Gospodarze · ${imported.home.team.name}`} aggregate={selectedImport.home.aggregate} /><CoverageSummary title={`Goście · ${imported.away.team.name}`} aggregate={selectedImport.away.aggregate} /></div></section>
+              <section className="api-review-section"><div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-xl font-black text-white">Zakres pełnego importu</h3><p className="mt-2 text-sm text-slate-400">{imported.snapshot.requestSummary.totalRequests} logicznych wywołań providera · maksymalnie {imported.snapshot.requestSummary.concurrencyLimit} równolegle</p></div><span className="source-mode-badge source-api">Snapshot v{imported.snapshot.version}</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(imported.snapshot.coverage).map(([name, coverage]) => <div key={name} className={`coverage-card coverage-${coverage.status}`}><span>{coverage.status}</span><strong>{name}</strong><small>{coverage.samples} rekordów / próbek</small><p>{coverage.message}</p></div>)}</div><details className="advanced-adjustments mt-4"><summary>Endpointy i cache</summary><p>{imported.snapshot.requestSummary.cacheStrategy}</p><div className="mt-3 space-y-2">{imported.snapshot.requestSummary.endpoints.map((item) => <div key={item.endpoint} className="data-source-item"><span>{item.endpoint} · {item.status} · {item.requests} wywołań</span><strong>{item.message}</strong></div>)}</div></details></section>
               {selectedImport.warnings.length > 0 && <section className="api-warning"><h3 className="font-black">Ostrzeżenia o brakach danych</h3><ul className="mt-3 space-y-2">{selectedImport.warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul></section>}
               <div className="api-odds-reminder">Uzupełnij aktualne kursy, aby obliczyć prawdopodobieństwo wynikające z kursu, edge i Value Index.</div>
             </div>

@@ -1,5 +1,11 @@
 import type { NumericValue } from "../types";
-import type { AggregateCoverageKey, AggregatedLastMatches, NormalizedTeamMatchStats } from "./types";
+import type {
+  AggregateCoverageKey,
+  AggregatedLastMatches,
+  NormalizedTeamMatchStats,
+  TeamSampleAverages,
+  TeamSampleSummary,
+} from "./types";
 
 type AvailableSummary = { total: NumericValue; count: number; average: NumericValue };
 
@@ -83,4 +89,105 @@ export function aggregateWarnings(aggregate: AggregatedLastMatches, teamLabel: s
     warnings.push(`Nie wszystkie spotkania zawierają dane xG dla ${teamLabel}.`);
   }
   return warnings;
+}
+
+function averageFor(
+  matches: NormalizedTeamMatchStats[],
+  key: keyof NormalizedTeamMatchStats,
+) {
+  return summarize(
+    matches.map((match) => {
+      const value = match[key];
+      return typeof value === "number" ? value : null;
+    }),
+  );
+}
+
+export function summarizeTeamSample(matches: NormalizedTeamMatchStats[]): TeamSampleSummary {
+  const ordered = [...matches].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+  const metricMap: Record<keyof TeamSampleAverages, keyof NormalizedTeamMatchStats> = {
+    goalsFor: "goalsFor",
+    goalsAgainst: "goalsAgainst",
+    xgFor: "xgFor",
+    xgAgainst: "xgAgainst",
+    shotsFor: "shotsFor",
+    shotsAgainst: "shotsAgainst",
+    shotsOnTargetFor: "shotsOnTargetFor",
+    shotsOnTargetAgainst: "shotsOnTargetAgainst",
+    shotsOffTargetFor: "shotsOffTargetFor",
+    blockedShotsFor: "blockedShotsFor",
+    shotsInsideBoxFor: "shotsInsideBoxFor",
+    shotsOutsideBoxFor: "shotsOutsideBoxFor",
+    cornersFor: "cornersFor",
+    cornersAgainst: "cornersAgainst",
+    yellowCardsFor: "yellowCardsFor",
+    redCardsFor: "redCardsFor",
+    cardsFor: "cardsFor",
+    cardsAgainst: "cardsAgainst",
+    foulsFor: "foulsFor",
+    possessionFor: "possessionFor",
+    goalkeeperSavesFor: "goalkeeperSavesFor",
+    totalPassesFor: "totalPassesFor",
+    accuratePassesFor: "accuratePassesFor",
+    passAccuracyFor: "passAccuracyFor",
+    halftimeGoalsFor: "halftimeGoalsFor",
+    halftimeGoalsAgainst: "halftimeGoalsAgainst",
+    secondHalfGoalsFor: "secondHalfGoalsFor",
+    secondHalfGoalsAgainst: "secondHalfGoalsAgainst",
+  };
+  const summaries = Object.fromEntries(
+    Object.entries(metricMap).map(([key, source]) => [
+      key,
+      averageFor(ordered, source as keyof NormalizedTeamMatchStats),
+    ]),
+  ) as Record<keyof TeamSampleAverages, AvailableSummary>;
+  const averages = Object.fromEntries(
+    Object.entries(summaries).map(([key, summary]) => [key, summary.average]),
+  ) as TeamSampleAverages;
+  const coverage = Object.fromEntries(
+    Object.entries(summaries).map(([key, summary]) => [key, summary.count]),
+  ) as TeamSampleSummary["coverage"];
+
+  const totals = ordered.map((match) =>
+    match.cornersFor === null || match.cornersAgainst === null
+      ? null
+      : match.cornersFor + match.cornersAgainst,
+  );
+  const thresholdCount = (threshold: number) =>
+    totals.filter((value) => value !== null && value > threshold).length;
+  const wins = ordered.filter((match) => match.result === "W").length;
+  const draws = ordered.filter((match) => match.result === "D").length;
+  const losses = ordered.filter((match) => match.result === "L").length;
+  coverage.firstGoal = ordered.filter((match) => match.firstGoal !== null).length;
+
+  return {
+    sampleSize: ordered.length,
+    wins,
+    draws,
+    losses,
+    points: wins * 3 + draws,
+    cleanSheets: ordered.filter((match) => match.goalsAgainst === 0).length,
+    btts: ordered.filter(
+      (match) =>
+        match.goalsFor !== null &&
+        match.goalsAgainst !== null &&
+        match.goalsFor > 0 &&
+        match.goalsAgainst > 0,
+    ).length,
+    over25: ordered.filter(
+      (match) =>
+        match.goalsFor !== null &&
+        match.goalsAgainst !== null &&
+        match.goalsFor + match.goalsAgainst > 2.5,
+    ).length,
+    scoredFirst: ordered.filter((match) => match.firstGoal === "scored").length,
+    concededFirst: ordered.filter((match) => match.firstGoal === "conceded").length,
+    cornersOver85: thresholdCount(8.5),
+    cornersOver95: thresholdCount(9.5),
+    cornersOver105: thresholdCount(10.5),
+    averages,
+    coverage,
+  };
 }

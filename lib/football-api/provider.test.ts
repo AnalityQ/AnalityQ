@@ -61,4 +61,25 @@ describe("ApiFootballProvider.getTeamLastFixtures", () => {
     expect(params).not.toHaveProperty("status");
     expect(result.map((item) => item.fixture.id)).toEqual([1, 2, 3, 4, 5]);
   });
+
+  it("dedyplikuje identyfikatory i pobiera osadzone szczegóły wielu fixture jednym zapytaniem", async () => {
+    apiFootballRequestMock.mockResolvedValue([]);
+    const { ApiFootballProvider } = await import("./provider");
+    await new ApiFootballProvider().getFixtureBundles([7, 7, 8]);
+    expect(apiFootballRequestMock).toHaveBeenCalledWith(
+      "/fixtures",
+      { ids: "7-8", timezone: "Europe/Warsaw" },
+      expect.any(Object),
+    );
+  });
+
+  it("pobiera H2H bez parametrów last i status, zgodnie z ograniczeniami planu Free", async () => {
+    apiFootballRequestMock.mockResolvedValue([]);
+    const { ApiFootballProvider } = await import("./provider");
+    await new ApiFootballProvider().getHeadToHead(364, 766);
+    const params = apiFootballRequestMock.mock.calls[0]?.[1];
+    expect(params).toEqual({ h2h: "364-766", timezone: "Europe/Warsaw" });
+    expect(params).not.toHaveProperty("last");
+    expect(params).not.toHaveProperty("status");
+  });
 });

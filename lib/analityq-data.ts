@@ -30,7 +30,7 @@ export const analysisAreas = [
   {
     title: "Kartki",
     mark: "KD",
-    description: "Średnie kartek oraz profil spotkania pod kątem przerywania gry.",
+    description: "Żółte i czerwone kartki, faule, progi oraz porównanie obu drużyn na konkretnych próbach.",
   },
   {
     title: "Kursy i prawdopodobieństwo z kursu",
@@ -61,7 +61,7 @@ export const pipelineSteps = [
   },
   {
     title: "Pobranie danych",
-    text: "Serwer pobiera szczegóły meczu i maksymalnie pięć zakończonych spotkań każdej drużyny.",
+    text: "Serwer pobiera dane API-Football, deduplikuje sezonowe mecze i przygotowuje próby ogółem oraz dom/wyjazd.",
   },
   {
     title: "Analiza ostatnich meczów",
@@ -180,7 +180,7 @@ export const faqItems = [
   {
     question: "Skąd są dane?",
     answer:
-      "W prototypie dane są wpisywane ręcznie przez osobę prowadzącą analizę. AnalityQ nie pobiera automatycznie danych z FotMob ani Fortuny.",
+      "Dane meczowe są pobierane po stronie serwera z API-Football i normalizowane przed zapisem raportu. Administrator może skorygować dane i opisy przed publikacją. Kursy ręczne mają pierwszeństwo; AnalityQ nie scrapuje FotMob ani Fortuny.",
   },
   {
     question: "Czy publicznie widać szkice?",

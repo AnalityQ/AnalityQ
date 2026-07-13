@@ -26,6 +26,8 @@ import { PreviewModeToggle } from "./PreviewModeToggle";
 import { ValueIndexCard } from "./ValueIndexCard";
 import { DataCompletenessBar } from "./DataCompletenessBar";
 import { StatisticsComparison } from "./StatisticsComparison";
+import { CountryLabel, LeagueLogo, TeamLogo } from "./ApiImage";
+import { FootballReportTabs } from "./FootballReportTabs";
 
 function formatDate(value: string) {
   if (!value) return "brak daty";
@@ -68,7 +70,7 @@ function TextPanel({ title, text }: { title: string; text: string }) {
     <section className="glass-card p-5">
       <h3 className="text-xl font-black text-white">{title}</h3>
       <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-300">
-        {text || "Brak danych w tej sekcji."}
+        {text || "Ta starsza analiza nie zawiera danych ani ręcznej notatki dla tej sekcji."}
       </p>
     </section>
   );
@@ -188,10 +190,14 @@ export function PublicReportClient({ slug }: { slug: string }) {
 
   if (!metrics) return null;
 
-  const modelSummary = match.notes.summary.trim() || match.notes.finalAssessment.trim() || generateModelSummary(match, metrics);
+  const snapshot = match.dataSource?.snapshot;
+  const modelSummary = match.notes.summary.trim()
+    || match.notes.finalAssessment.trim()
+    || snapshot?.automaticSummary
+    || generateModelSummary(match, metrics);
   const scenarioText = match.notes.scenarios.trim() || generateScenarioText(match, metrics);
   const riskText = match.notes.keyRisks.trim() || generateRiskText(match, metrics);
-  const keySignals = generateKeySignals(match, metrics);
+  const keySignals = snapshot ? [] : generateKeySignals(match, metrics);
   const premiumCards = [
     ["Rzuty rożne", match.premiumSections.cornersAnalysis],
     ["Kartki", match.premiumSections.cardsAnalysis],
@@ -209,12 +215,32 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <div>
             <Logo href="" />
             <p className="eyebrow mt-8">Raport AnalityQ</p>
-            <h1 className="mt-3 text-3xl font-black text-white md:text-5xl">
-              {match.basic.homeTeam || "Gospodarz"} vs {match.basic.awayTeam || "Gość"}
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
-              {match.basic.league || "Liga nieuzupełniona"} · {match.basic.country || "kraj nieuzupełniony"} · {formatDate(match.basic.kickoff)}
-            </p>
+            {snapshot ? (
+              <>
+                <div className="report-league-identity">
+                  <LeagueLogo src={snapshot.fixture.leagueLogo} alt={snapshot.fixture.leagueName} size={44} />
+                  <div>
+                    <strong>{snapshot.fixture.leagueName}</strong>
+                    <span><CountryLabel code={snapshot.fixture.countryCode} name={snapshot.fixture.countryName} /> · sezon {snapshot.fixture.season}{snapshot.fixture.round ? ` · ${snapshot.fixture.round}` : ""}</span>
+                  </div>
+                </div>
+                <div className="report-team-identity">
+                  <div><TeamLogo src={snapshot.fixture.homeTeam.logo} alt={snapshot.fixture.homeTeam.name} size={76} priority /><h1>{snapshot.fixture.homeTeam.name}</h1><span>Gospodarz</span></div>
+                  <b>VS</b>
+                  <div><TeamLogo src={snapshot.fixture.awayTeam.logo} alt={snapshot.fixture.awayTeam.name} size={76} priority /><h1>{snapshot.fixture.awayTeam.name}</h1><span>Gość</span></div>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{formatDate(match.basic.kickoff)}{snapshot.fixture.referee ? ` · sędzia: ${snapshot.fixture.referee}` : ""}</p>
+              </>
+            ) : (
+              <>
+                <h1 className="mt-3 text-3xl font-black text-white md:text-5xl">
+                  {match.basic.homeTeam || "Gospodarz"} vs {match.basic.awayTeam || "Gość"}
+                </h1>
+                <p className="mt-3 text-sm leading-6 text-slate-300">
+                  {match.basic.league || "Liga nieuzupełniona"} · {match.basic.country || "kraj nieuzupełniony"} · {formatDate(match.basic.kickoff)}
+                </p>
+              </>
+            )}
             <p className="mt-2 text-sm text-slate-400">{match.basic.venue ? `Stadion / miejsce: ${match.basic.venue}` : "Stadion / miejsce: brak danych"}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <StatusBadge status={match.basic.status} />
@@ -254,7 +280,16 @@ export function PublicReportClient({ slug }: { slug: string }) {
 
         <div className="mt-5"><DataCompletenessBar completeness={metrics.dataCompleteness} /></div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        {snapshot && (
+          <FootballReportTabs
+            snapshot={snapshot}
+            mode={mode}
+            summary={modelSummary}
+            premiumSections={match.premiumSections}
+          />
+        )}
+
+        {!snapshot && <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <TextPanel title="Podsumowanie modelu" text={modelSummary} />
           <section className="glass-card p-5">
             <h3 className="text-xl font-black text-white">Kluczowe sygnały</h3>
@@ -266,7 +301,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
               ))}
             </div>
           </section>
-        </div>
+        </div>}
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Oczekiwane gole gospodarzy" value={formatNumber(metrics.expectedHomeGoals)} note={match.basic.homeTeam || "gospodarz"} tone="cyan" />
@@ -276,7 +311,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <MetricCard label="Oczekiwane kartki" value={formatNumber(metrics.expectedCards, 1)} note="łącznie" />
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        {!snapshot && <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <section className="glass-card p-5">
             <h3 className="text-xl font-black text-white">Forma drużyn</h3>
             <div className="mt-5 space-y-5">
@@ -292,15 +327,15 @@ export function PublicReportClient({ slug }: { slug: string }) {
           </section>
 
           <StatisticsComparison match={match} metrics={metrics} />
-        </div>
+        </div>}
 
         <section className="mt-8 glass-card p-5">
           <p className="eyebrow">Model statystyczny</p>
           <h2 className="mt-2 text-2xl font-black text-white">Analiza prawdopodobieństw</h2>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <ProbabilityMetric label="1 — gospodarz" value={metrics.modelProbabilities.homeWin} />
+            <ProbabilityMetric label={`1 — ${match.basic.homeTeam || "gospodarz"}`} value={metrics.modelProbabilities.homeWin} />
             <ProbabilityMetric label="X — remis" value={metrics.modelProbabilities.draw} />
-            <ProbabilityMetric label="2 — gość" value={metrics.modelProbabilities.awayWin} />
+            <ProbabilityMetric label={`2 — ${match.basic.awayTeam || "gość"}`} value={metrics.modelProbabilities.awayWin} />
             <ProbabilityMetric label="Powyżej 2,5 gola" value={metrics.modelProbabilities.over25} />
             <ProbabilityMetric label="Poniżej 2,5 gola" value={metrics.modelProbabilities.under25} />
             <ProbabilityMetric label="BTTS — tak" value={metrics.modelProbabilities.bttsYes} />
@@ -314,10 +349,10 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <MarketAnalysisTable metrics={metrics} />
         </section>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        {!snapshot && <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <TextPanel title="Scenariusze meczu" text={scenarioText} />
           <TextPanel title="Ryzyka" text={riskText} />
-        </div>
+        </div>}
 
         <section className="mt-8 rounded-2xl border border-cyan-200/12 bg-cyan-200/[0.035] p-5">
           <p className="eyebrow">Transparentność raportu</p>
@@ -344,7 +379,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
           <p className="mt-4 text-xs leading-6 text-slate-500">Kompletność danych wejściowych: {metrics.dataCompleteness.percent}%. Dane mogą być ręcznie weryfikowane i korygowane przed publikacją.</p>
         </section>
 
-        <section className="mt-8">
+        {!snapshot && <section className="mt-8">
           <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
               <p className="eyebrow">Premium</p>
@@ -370,7 +405,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
               ))}
             </div>
           )}
-        </section>
+        </section>}
 
         <p className="mt-8 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-6 text-slate-400">
           {modelDisclaimer}

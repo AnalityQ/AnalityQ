@@ -5,6 +5,7 @@ import { calculateFullReportMetrics } from "@/lib/calculations";
 import type { MatchAnalysisRecord, PublicationStatus } from "@/lib/types";
 import { getRiskLabel, PublicationBadge } from "../Badges";
 import { DataCompletenessBar } from "../DataCompletenessBar";
+import { LeagueLogo, TeamLogo } from "../ApiImage";
 
 function formatDate(value: string) {
   if (!value) return "Brak daty";
@@ -27,13 +28,14 @@ export function StudioAnalysisCard({
   onStatus: (id: string, status: PublicationStatus) => void;
 }) {
   const metrics = calculateFullReportMetrics(match);
+  const snapshot = match.dataSource?.snapshot;
   return (
     <article className="studio-analysis-card">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0"><p className="text-xs font-black text-cyan-100">Slot {String(match.slotNumber).padStart(2, "0")}</p><p className="mt-1 truncate text-sm text-slate-400">{match.basic.league || "Liga nieuzupełniona"}</p></div>
+        <div className="flex min-w-0 items-center gap-3"><LeagueLogo src={snapshot?.fixture.leagueLogo} alt={match.basic.league || "Rozgrywki"} size={36} /><div className="min-w-0"><p className="text-xs font-black text-cyan-100">Slot {String(match.slotNumber).padStart(2, "0")}</p><p className="mt-1 truncate text-sm text-slate-400">{match.basic.league || "Liga nieuzupełniona"}</p></div></div>
         <PublicationBadge status={match.publicationStatus} />
       </div>
-      <h3 className="mt-4 text-xl font-black text-white">{match.basic.homeTeam || "Gospodarz"} <span className="text-slate-500">vs</span> {match.basic.awayTeam || "Gość"}</h3>
+      <div className="studio-card-teams"><div><TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={match.basic.homeTeam || "Gospodarz"} size={36} /><strong>{match.basic.homeTeam || "Gospodarz"}</strong></div><span>vs</span><div><TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={match.basic.awayTeam || "Gość"} size={36} /><strong>{match.basic.awayTeam || "Gość"}</strong></div></div>
       <p className="mt-2 text-sm font-semibold text-cyan-100">{formatDate(match.basic.kickoff)}</p>
       <span className={`source-mode-badge source-${match.sourceMode}`}>{match.sourceMode === "api" ? "Pobrane z API" : match.sourceMode === "mixed" ? "API + korekty ręczne" : "Dane ręczne"}</span>
       <div className="mt-4"><DataCompletenessBar completeness={metrics.dataCompleteness} compact /></div>

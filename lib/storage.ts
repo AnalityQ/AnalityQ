@@ -205,6 +205,9 @@ export function normalizeAnalysis(analysis: MatchAnalysisRecord, existing: Match
                 away: { ...analysis.dataSource.coverage.away },
               }
             : undefined,
+          snapshot: analysis.dataSource.snapshot?.version === 2
+            ? analysis.dataSource.snapshot
+            : undefined,
         }
       : null,
   };

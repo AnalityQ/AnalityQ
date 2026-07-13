@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyFootballImportToAnalysis } from "./apply-import";
 import { createEmptyAnalysis } from "../storage";
-import type { AggregatedLastMatches, FootballMatchImport } from "./types";
+import type { AggregatedLastMatches, FootballAnalysisSnapshot, FootballMatchImport } from "./types";
 
 const aggregate: AggregatedLastMatches = {
   matchesCount: 2, goalsForLast5: 3, goalsAgainstLast5: 1, cornersForLast5: 9,
@@ -19,6 +19,7 @@ const imported: FootballMatchImport = {
   fixture: { id: 99, leagueId: 4, leagueName: "Liga", leagueCountry: "Polska", kickoff: "2026-07-12T18:30:00Z", status: "NS", venue: "Stadion", homeTeam: { id: 1, name: "Gospodarze" }, awayTeam: { id: 2, name: "Goście" } },
   home: { team: { id: 1, name: "Gospodarze" }, matches: [], aggregate },
   away: { team: { id: 2, name: "Goście" }, matches: [], aggregate },
+  snapshot: { version: 2, fixture: { countryName: "Polska" } } as FootballAnalysisSnapshot,
   fetchedAt: "2026-07-11T18:40:00Z", warnings: [], cache: { refreshed: false, persistent: false },
 };
 

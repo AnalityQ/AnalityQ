@@ -12,46 +12,50 @@ function hasMissingData(calculated: FullReportMetrics) {
   return calculated.dataCompleteness.ratio < 0.78 || calculated.dataCompleteness.missingCritical;
 }
 
+function decimal(value: number) {
+  return value.toLocaleString("pl-PL", { maximumFractionDigits: 2 });
+}
+
 export function generateKeySignals(match: MatchAnalysisRecord, calculated: FullReportMetrics) {
   const signals: string[] = [];
 
   if (calculated.maxPositiveEdge > 8) {
     signals.push(
-      `Najsilniejszy sygnał value pojawia się na rynku ${calculated.bestValueMarket}, gdzie różnica między prawdopodobieństwem użytym przez model a prawdopodobieństwem z kursu jest wyraźna.`,
+      `${teamLabel(match)}: rynek ${calculated.bestValueMarket} ma najwyższy dodatni edge równy ${decimal(calculated.maxPositiveEdge)} pp. Sygnał uwzględnia kurs, prawdopodobieństwo modelowe i kompletność danych ${calculated.dataCompleteness.percent}%.`,
     );
   } else if (calculated.maxPositiveEdge >= 3) {
     signals.push(
-      `Model wskazuje umiarkowany sygnał value na rynku ${calculated.bestValueMarket}. Warto czytać go razem z poziomem ryzyka i kompletnością danych.`,
+      `${teamLabel(match)}: rynek ${calculated.bestValueMarket} ma dodatni edge równy ${decimal(calculated.maxPositiveEdge)} pp przy kompletności danych ${calculated.dataCompleteness.percent}%.`,
     );
   }
 
   if (calculated.totalExpectedGoals !== null && calculated.totalExpectedGoals > 2.7) {
     signals.push(
-      "Model wskazuje podwyższony potencjał bramkowy. Łączna wartość oczekiwanych goli przekracza standardowy próg dla meczu o profilu bramkowym.",
+      `${teamLabel(match)}: łączna wartość oczekiwanych goli wynosi ${decimal(calculated.totalExpectedGoals)} na podstawie dostępnych średnich obu drużyn.`,
     );
   }
 
   if (calculated.expectedCorners !== null && calculated.expectedCorners > 9) {
     signals.push(
-      "Dane rożnych sugerują wysoką aktywność bocznych sektorów i możliwy większy wolumen stałych fragmentów.",
+      `${teamLabel(match)}: średnie obu drużyn dają łącznie ${decimal(calculated.expectedCorners)} oczekiwanego rzutu rożnego w meczu.`,
     );
   }
 
   if (calculated.expectedCards !== null && calculated.expectedCards > 3.5) {
     signals.push(
-      "Profil spotkania wskazuje na podwyższony potencjał kartek, szczególnie jeśli tempo meczu będzie przerywane faulami.",
+      `${teamLabel(match)}: średnie obu drużyn dają łącznie ${decimal(calculated.expectedCards)} oczekiwanej kartki w meczu.`,
     );
   }
 
   if (hasMissingData(calculated)) {
     signals.push(
-      "Część danych wejściowych nie została uzupełniona, dlatego raport należy traktować jako wstępną analizę statystyczną.",
+      `${teamLabel(match)}: kompletność danych wynosi ${calculated.dataCompleteness.percent}% (${calculated.dataCompleteness.filled} z ${calculated.dataCompleteness.total} wymaganych pól), dlatego brakujące wartości ograniczają wnioski.`,
     );
   }
 
   if (signals.length === 0) {
     signals.push(
-      `Dla meczu ${teamLabel(match)} model pokazuje zrównoważony profil analityczny bez jednego dominującego sygnału. Kluczowe pozostają kurs, edge, jakość danych i kontekst składowy.`,
+      `Dla meczu ${teamLabel(match)} żadna dostępna metryka nie spełniła reguł sygnału. Kompletność danych wynosi ${calculated.dataCompleteness.percent}%, a najwyższy dodatni edge ${decimal(calculated.maxPositiveEdge)} pp.`,
     );
   }
 
@@ -86,17 +90,17 @@ export function generateScenarioText(match: MatchAnalysisRecord, calculated: Ful
 
   if (calculated.totalExpectedGoals !== null && calculated.totalExpectedGoals > 2.7) {
     scenarios.push(
-      "Scenariusz wyższego tempa bramkowego jest wspierany przez oczekiwane gole i profil ofensywny danych wejściowych.",
+      `${teamLabel(match)}: scenariusz bramkowy opiera się na łącznej wartości oczekiwanych goli ${decimal(calculated.totalExpectedGoals)}.`,
     );
   } else if (calculated.totalExpectedGoals !== null) {
     scenarios.push(
-      "Scenariusz bazowy przewiduje bardziej kontrolowany przebieg, w którym przewagę mogą mieć jakość sytuacji i skuteczność w kluczowych momentach.",
+      `${teamLabel(match)}: łączna wartość oczekiwanych goli wynosi ${decimal(calculated.totalExpectedGoals)}; raport nie przypisuje tej wartości pewnego przebiegu spotkania.`,
     );
   }
 
   if (calculated.expectedCorners !== null && calculated.expectedCorners > 9) {
     scenarios.push(
-      "Wariant z większą liczbą stałych fragmentów może pojawić się, jeśli boczne sektory będą często wykorzystywane do budowania ataku.",
+      `${teamLabel(match)}: oczekiwana łączna liczba rzutów rożnych wynosi ${decimal(calculated.expectedCorners)} na podstawie dostępnych średnich obu drużyn.`,
     );
   }
 
