@@ -36,25 +36,17 @@ export class ApiFootballProvider implements FootballDataProvider {
     const before = new Date(beforeDate);
     const beforeTime = before.getTime();
 
-    const toDate = Number.isNaN(beforeTime)
-      ? beforeDate.slice(0, 10)
-      : before.toISOString().slice(0, 10);
-
-    const fromDate = Number.isNaN(beforeTime)
-      ? undefined
-      : new Date(beforeTime - 550 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10);
-
     const fixtures = await apiFootballRequest<ApiFootballFixture[]>(
       "/fixtures",
       {
         team: teamId,
-        from: fromDate,
-        to: toDate,
+        last: Math.max(12, limit * 3),
         timezone: "Europe/Warsaw",
       },
-      { cacheTtlMs: footballCacheTtl.teamLastFixtures, refresh: options?.refresh },
+      {
+        cacheTtlMs: footballCacheTtl.teamLastFixtures,
+        refresh: options?.refresh,
+      },
     );
 
     return fixtures
