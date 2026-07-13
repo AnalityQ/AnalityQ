@@ -2,8 +2,6 @@ import { apiFootballRequest } from "./client";
 import { footballCacheTtl } from "./cache";
 import type {
   ApiFootballFixture,
-  ApiFootballInjury,
-  ApiFootballLineup,
   ApiFootballTeamSearchItem,
   ApiFootballTeamStatistics,
   FootballDataProvider,
@@ -91,22 +89,6 @@ export class ApiFootballProvider implements FootballDataProvider {
       { cacheTtlMs: footballCacheTtl.fixtureDetails, refresh: options?.refresh },
     );
     return fixtures[0] || null;
-  }
-
-  async getTeamInjuries(teamId: number, leagueId: number, season: number, options?: ProviderRequestOptions) {
-    return apiFootballRequest<ApiFootballInjury[]>(
-      "/injuries",
-      { team: teamId, league: leagueId, season },
-      { cacheTtlMs: footballCacheTtl.injuries, refresh: options?.refresh },
-    );
-  }
-
-  async getFixtureLineups(fixtureId: number, options?: ProviderRequestOptions) {
-    return apiFootballRequest<ApiFootballLineup[]>(
-      "/fixtures/lineups",
-      { fixture: fixtureId },
-      { cacheTtlMs: footballCacheTtl.lineups, refresh: options?.refresh },
-    );
   }
 }
 
