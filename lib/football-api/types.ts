@@ -156,6 +156,7 @@ export interface FootballDataProvider {
   getTeamLastFixtures(
     teamId: number,
     beforeDate: string,
+    season: number,
     limit: number,
     options?: ProviderRequestOptions,
   ): Promise<ApiFootballFixture[]>;

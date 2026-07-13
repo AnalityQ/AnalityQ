@@ -37,10 +37,19 @@ export async function buildFootballMatchImport(fixtureId: number, refresh = fals
     throw new FootballApiError("INVALID_RESPONSE", "Nie znaleziono wybranego meczu.", 404);
   }
 
+  const season = fixture.league.season;
+  if (typeof season !== "number" || !Number.isInteger(season)) {
+    throw new FootballApiError(
+      "INVALID_RESPONSE",
+      "Dostawca nie zwrócił sezonu wybranego meczu.",
+      502,
+    );
+  }
+
   const kickoff = fixture.fixture.date;
   const [homeFixtures, awayFixtures] = await Promise.all([
-    provider.getTeamLastFixtures(fixture.teams.home.id, kickoff, 5, { refresh }),
-    provider.getTeamLastFixtures(fixture.teams.away.id, kickoff, 5, { refresh }),
+    provider.getTeamLastFixtures(fixture.teams.home.id, kickoff, season, 5, { refresh }),
+    provider.getTeamLastFixtures(fixture.teams.away.id, kickoff, season, 5, { refresh }),
   ]);
   const withoutSelected = (items: typeof homeFixtures) =>
     items.filter((item) => item.fixture.id !== fixtureId).slice(0, 5);
@@ -80,9 +89,15 @@ export async function buildFootballMatchImport(fixtureId: number, refresh = fals
   };
 }
 
-export async function buildTeamLastMatches(teamId: number, beforeDate: string, limit = 5, refresh = false) {
+export async function buildTeamLastMatches(
+  teamId: number,
+  beforeDate: string,
+  season: number,
+  limit = 5,
+  refresh = false,
+) {
   const provider = getFootballDataProvider();
-  const fixtures = await provider.getTeamLastFixtures(teamId, beforeDate, limit, { refresh });
+  const fixtures = await provider.getTeamLastFixtures(teamId, beforeDate, season, limit, { refresh });
   const data = await normalizeTeamFixtures(fixtures, teamId, refresh);
   const aggregate = aggregateLastMatches(data.normalized);
   return {

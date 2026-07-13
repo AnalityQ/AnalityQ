@@ -7,9 +7,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const teamId = positiveInteger(url.searchParams.get("teamId"));
+  const season = positiveInteger(url.searchParams.get("season"));
   const beforeDate = url.searchParams.get("beforeDate") || "";
   const requestedLimit = positiveInteger(url.searchParams.get("limit") || 5);
-  if (!teamId || !requestedLimit || Number.isNaN(new Date(beforeDate).getTime())) {
+  if (!teamId || !season || !requestedLimit || Number.isNaN(new Date(beforeDate).getTime())) {
     return Response.json(
       { error: { code: "INVALID_PARAMETERS", message: "Nieprawidłowe parametry drużyny lub daty." } },
       { status: 400 },
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
     const data = await buildTeamLastMatches(
       teamId,
       beforeDate,
+      season,
       Math.min(5, requestedLimit),
       wantsRefresh(url.searchParams.get("refresh")),
     );
