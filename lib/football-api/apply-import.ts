@@ -2,6 +2,8 @@ import type { MatchAnalysisRecord, TeamManualStats } from "../types";
 import { aggregateLastMatches, aggregateWarnings, summarizeTeamSample } from "./aggregate";
 import type { AggregatedLastMatches, FootballMatchImport } from "./types";
 
+export type FootballRefreshScope = "all" | "lineups" | "injuries" | "odds" | "standings" | "signals";
+
 function toManualStats(aggregate: AggregatedLastMatches): TeamManualStats {
   return {
     goalsForLast5: aggregate.goalsForLast5,
@@ -116,6 +118,54 @@ export function applyFootballImportToAnalysis(
         away: toAnalysisCoverage(imported.away.aggregate),
       },
       snapshot: imported.snapshot,
+    },
+  };
+}
+
+export function applyFootballRefreshToAnalysis(
+  analysis: MatchAnalysisRecord,
+  imported: FootballMatchImport,
+  scope: FootballRefreshScope,
+): MatchAnalysisRecord {
+  if (scope === "all" || !analysis.dataSource?.snapshot) {
+    return applyFootballImportToAnalysis(analysis, imported);
+  }
+
+  const current = analysis.dataSource.snapshot;
+  const refreshed = imported.snapshot;
+  const next = {
+    ...current,
+    fetchedAt: refreshed.fetchedAt,
+    warnings: refreshed.warnings,
+  };
+
+  if (scope === "lineups") {
+    next.lineups = refreshed.lineups;
+    next.playerInsights = refreshed.playerInsights;
+    next.coverage = { ...next.coverage, lineups: refreshed.coverage.lineups, players: refreshed.coverage.players };
+  } else if (scope === "injuries") {
+    next.injuries = refreshed.injuries;
+    next.coverage = { ...next.coverage, injuries: refreshed.coverage.injuries };
+  } else if (scope === "odds") {
+    next.odds = refreshed.odds;
+    next.coverage = { ...next.coverage, odds: refreshed.coverage.odds };
+  } else if (scope === "standings") {
+    next.standings = refreshed.standings;
+    next.coverage = { ...next.coverage, standings: refreshed.coverage.standings };
+  } else {
+    next.signals = refreshed.signals;
+    next.risks = refreshed.risks;
+    next.automaticSummary = refreshed.automaticSummary;
+  }
+
+  return {
+    ...analysis,
+    publicationStatus: "draft",
+    dataSource: {
+      ...analysis.dataSource,
+      fetchedAt: imported.fetchedAt,
+      warnings: imported.warnings,
+      snapshot: next,
     },
   };
 }

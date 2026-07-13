@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateFullReportMetrics, marketDefinitions, safeNumber } from "@/lib/calculations";
-import { applyFootballImportToAnalysis } from "@/lib/football-api/apply-import";
+import {
+  applyFootballImportToAnalysis,
+  applyFootballRefreshToAnalysis,
+  type FootballRefreshScope,
+} from "@/lib/football-api/apply-import";
 import type { FootballMatchImport } from "@/lib/football-api/types";
 import { normalizeAnalysis } from "@/lib/storage";
 import { studioSessionExpiredEvent } from "@/lib/studio-auth";
@@ -41,18 +45,25 @@ const statFields: Array<{ key: keyof TeamManualStats; label: string; text?: bool
 const quickStatFields = statFields.filter((field) => field.key !== "cardsAgainstLast5");
 
 const tabs = [
-  ["match", "Dane meczu"],
-  ["home", "Statystyki gospodarzy"],
-  ["away", "Statystyki gości"],
+  ["match", "Mecz"],
+  ["import", "Import danych"],
+  ["coverage", "Kompletność"],
   ["odds", "Kursy"],
-  ["model", "Obliczenia modelu"],
-  ["lineups", "Składy i absencje"],
-  ["notes", "Notatki"],
-  ["premium", "Sekcje Premium"],
-  ["publication", "Ustawienia publikacji"],
+  ["corrections", "Korekty"],
+  ["preview", "Podgląd"],
+  ["publication", "Publikacja"],
 ] as const;
 
 type Tab = (typeof tabs)[number][0];
+
+const refreshActions: Array<{ scope: FootballRefreshScope; label: string }> = [
+  { scope: "all", label: "Odśwież wszystko" },
+  { scope: "lineups", label: "Odśwież składy" },
+  { scope: "injuries", label: "Odśwież absencje" },
+  { scope: "odds", label: "Odśwież kursy" },
+  { scope: "standings", label: "Odśwież tabelę" },
+  { scope: "signals", label: "Wygeneruj ponownie sygnały" },
+];
 
 function draftStorageKey(analysis: MatchAnalysisRecord, allMatches: MatchAnalysisRecord[]) {
   return allMatches.some((match) => match.id === analysis.id)
@@ -197,6 +208,9 @@ export function AnalysisFormModal({
   const [confirmReimport, setConfirmReimport] = useState(false);
   const [overwriteApproved, setOverwriteApproved] = useState(false);
   const [manualOverrides, setManualOverrides] = useState<Set<string>>(() => new Set());
+  const [refreshingScope, setRefreshingScope] = useState<FootballRefreshScope | null>(null);
+  const [refreshResult, setRefreshResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<"mobile" | "desktop">("mobile");
   const firstInputRef = useRef<HTMLInputElement>(null);
   const firstOddsRef = useRef<HTMLInputElement>(null);
   const normalizedDraft = useMemo(() => normalizeAnalysis(draft, allMatches), [allMatches, draft]);
@@ -348,6 +362,45 @@ export function AnalysisFormModal({
     setImportOpen(true);
   }
 
+  async function refreshFootballData(scope: FootballRefreshScope) {
+    const fixtureId = draft.dataSource?.fixtureId;
+    if (!fixtureId) {
+      setRefreshResult({ type: "error", message: "Najpierw wybierz mecz i wykonaj pierwszy import danych." });
+      return;
+    }
+    if (refreshingScope) return;
+    setRefreshingScope(scope);
+    setRefreshResult(null);
+    try {
+      const response = await fetch("/api/football/match-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fixtureId, refresh: scope !== "signals" }),
+      });
+      const payload = (await response.json()) as { data?: FootballMatchImport; error?: { message?: string } };
+      if (response.status === 401) {
+        window.dispatchEvent(new Event(studioSessionExpiredEvent));
+        throw new Error("Sesja wygasła. Zaloguj się ponownie.");
+      }
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error?.message || "Nie udało się odświeżyć wybranego zakresu.");
+      }
+      setDraft((current) => applyFootballRefreshToAnalysis(current, payload.data!, scope));
+      setAutosaveState("dirty");
+      const actionLabel = refreshActions.find((action) => action.scope === scope)?.label || "Odświeżenie";
+      const message = `${actionLabel} zakończone. Sprawdź wynik przed publikacją.`;
+      setRefreshResult({ type: "success", message });
+      onNotify(message);
+    } catch (refreshError) {
+      setRefreshResult({
+        type: "error",
+        message: refreshError instanceof Error ? refreshError.message : "Nie udało się odświeżyć wybranego zakresu.",
+      });
+    } finally {
+      setRefreshingScope(null);
+    }
+  }
+
   function hasStatsForBothTeams() {
     return (["home", "away"] as const).every((team) =>
       statFields.some((field) => field.key !== "formLast5" && safeNumber(draft.manualStats[team][field.key]) !== null),
@@ -422,6 +475,11 @@ export function AnalysisFormModal({
     ["h2hNotes", "H2H"],
     ["generalStatsNotes", "Notatki statystyczne"],
   ] as const;
+  const activeStepIndex = tabs.findIndex(([value]) => value === activeTab);
+  const missingSteps: Array<{ tab: Tab; label: string }> = [];
+  if (!hasRequiredData()) missingSteps.push({ tab: "match", label: "Uzupełnij dane meczu" });
+  if (!hasStatsForBothTeams()) missingSteps.push({ tab: "coverage", label: "Sprawdź kompletność" });
+  if (marketDefinitions.some((market) => draft.odds[market.key] === null)) missingSteps.push({ tab: "odds", label: "Uzupełnij kursy" });
 
   return (
     <div className="analysis-form-backdrop" role="dialog" aria-modal="true" aria-label="Edytor analizy">
@@ -438,7 +496,7 @@ export function AnalysisFormModal({
             <button type="button" className={mode === "quick" ? "active" : ""} onClick={() => onModeChange("quick")}>Szybka analiza</button>
             <button type="button" className={mode === "full" ? "active" : ""} onClick={() => onModeChange("full")}>Pełna analiza</button>
           </div>
-          <button type="button" className="analysis-form-close" onClick={onClose} aria-label="Zamknij formularz">×</button>
+          <button type="button" className="analysis-form-close" onClick={onClose}>Zamknij</button>
         </header>
 
         {storedDraft && (
@@ -463,11 +521,21 @@ export function AnalysisFormModal({
             </div>
 
             {mode === "full" && (
-              <nav className="analysis-tabs" aria-label="Sekcje formularza">
-                {tabs.map(([value, label]) => (
-                  <button key={value} type="button" className={activeTab === value ? "active" : ""} onClick={() => setActiveTab(value)}>{label}</button>
+              <nav className="analysis-tabs" aria-label="Kroki formularza">
+                <div className="analysis-step-progress" role="progressbar" aria-label="Postęp edycji" aria-valuemin={1} aria-valuemax={tabs.length} aria-valuenow={activeStepIndex + 1}>
+                  <span style={{ width: `${((activeStepIndex + 1) / tabs.length) * 100}%` }} />
+                </div>
+                {tabs.map(([value, label], index) => (
+                  <button key={value} type="button" className={activeTab === value ? "active" : ""} aria-current={activeTab === value ? "step" : undefined} onClick={() => setActiveTab(value)}><span>{index + 1}</span>{label}</button>
                 ))}
               </nav>
+            )}
+
+            {mode === "full" && missingSteps.length > 0 && (
+              <div className="studio-missing-links" aria-label="Sekcje wymagające uwagi">
+                <strong>Do sprawdzenia przed publikacją</strong>
+                {missingSteps.map((item) => <button key={item.tab} type="button" onClick={() => setActiveTab(item.tab)}>{item.label}</button>)}
+              </div>
             )}
 
             <div className="space-y-5">
@@ -485,11 +553,27 @@ export function AnalysisFormModal({
               ) : (
                 <>
                   {activeTab === "match" && <Section title="Dane meczu"><RequiredMatchFields draft={draft} updateBasic={updateBasic} firstInputRef={firstInputRef} sourceFor={sourceFor} /></Section>}
-                  {activeTab === "home" && <Section title="Statystyki gospodarzy — ostatnie 5 meczów"><TeamFields team="home" fields={statFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section>}
-                  {activeTab === "away" && <Section title="Statystyki gości — ostatnie 5 meczów"><TeamFields team="away" fields={statFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section>}
+                  {activeTab === "import" && (
+                    <div className="space-y-5">
+                      <Section title="Import danych" description="Wybierz mecz przy pierwszym imporcie albo odśwież konkretny zakres już przypisanego spotkania.">
+                        <div className="sm:col-span-2"><button type="button" className="btn-primary" onClick={requestImport}>Wybierz mecz i pobierz dane</button></div>
+                      </Section>
+                      <section className="admin-form-section">
+                        <h3 className="text-xl font-black text-white">Szybkie odświeżanie</h3>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">Każda akcja aktualizuje tylko wskazany fragment szkicu. Ponowna publikacja wymaga sprawdzenia wyniku.</p>
+                        <div className="studio-refresh-grid">
+                          {refreshActions.map((action) => <button key={action.scope} type="button" className="btn-secondary" disabled={Boolean(refreshingScope) || !draft.dataSource?.fixtureId} onClick={() => void refreshFootballData(action.scope)}>{refreshingScope === action.scope ? "Odświeżanie…" : action.label}</button>)}
+                        </div>
+                        {!draft.dataSource?.fixtureId && <p className="studio-refresh-result">Najpierw wykonaj import meczu, aby włączyć odświeżanie.</p>}
+                        {refreshResult && <p className={`studio-refresh-result studio-refresh-${refreshResult.type}`} role={refreshResult.type === "error" ? "alert" : "status"}>{refreshResult.message}</p>}
+                      </section>
+                    </div>
+                  )}
+                  {activeTab === "coverage" && <div className="space-y-5"><section className="admin-form-section"><div className="studio-completeness-heading"><div><p className="eyebrow">Kompletność raportu</p><h3>{metrics.dataCompleteness.percent}%</h3></div><p>Brak danych pozostaje pusty i nie jest zamieniany na zero. Ręcznie wpisane 0 jest zachowywane.</p></div></section><Section title="Statystyki gospodarzy — ostatnie 5 meczów"><TeamFields team="home" fields={statFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section><Section title="Statystyki gości — ostatnie 5 meczów"><TeamFields team="away" fields={statFields} draft={draft} onChange={updateStats} sourceFor={sourceFor} /></Section></div>}
                   {activeTab === "odds" && <Section title="Kursy">{oddsFields}</Section>}
-                  {activeTab === "model" && (
-                    <Section title="Obliczenia modelu" description="Wyniki bazują na czystych danych. Ręczne wartości są opcjonalne.">
+                  {activeTab === "corrections" && (
+                    <div className="space-y-5">
+                    <Section title="Korekty modelu" description="Wyniki bazują na czystych danych. Ręczne wartości są opcjonalne.">
                       <Field label="Poziom ryzyka"><select className="admin-input" value={draft.settings.riskLevel} onChange={(event) => change((current) => ({ ...current, settings: { ...current.settings, riskLevel: event.target.value as RiskLevel } }))}><option value="auto">Automatyczny</option><option value="low">Niski</option><option value="medium">Średni</option><option value="high">Wysoki</option></select></Field>
                       <div className="sm:col-span-2">
                         <details className="advanced-adjustments">
@@ -503,10 +587,12 @@ export function AnalysisFormModal({
                         </details>
                       </div>
                     </Section>
+                    <Section title="Składy i absencje"><div className="sm:col-span-2"><Field label="Składy"><textarea className="admin-textarea" value={draft.notes.lineupsNotes} onChange={(event) => updateNote("lineupsNotes", event.target.value)} /></Field></div><div className="sm:col-span-2"><Field label="Kontuzje i absencje"><textarea className="admin-textarea" value={draft.notes.injuriesNotes} onChange={(event) => updateNote("injuriesNotes", event.target.value)} /></Field></div></Section>
+                    <Section title="Notatki" description="Jeśli pozostawisz je puste, raport utworzy naturalne teksty automatycznie.">{notesFields.map(([key, label]) => <div key={key} className="sm:col-span-2"><Field label={label}><textarea className="admin-textarea" value={draft.notes[key]} onChange={(event) => updateNote(key, event.target.value)} /></Field></div>)}</Section>
+                    <Section title="Sekcje Premium">{([ ["cornersAnalysis", "Rzuty rożne"], ["cardsAnalysis", "Kartki"], ["shotsAnalysis", "Strzały"], ["halvesAnalysis", "Połowy"], ["advancedRisk", "Zaawansowane ryzyko"], ["h2hAdvanced", "Zaawansowane H2H"], ["lineupsAdvanced", "Zaawansowane składy"] ] as const).map(([key, label]) => <div key={key} className="sm:col-span-2"><Field label={label}><textarea className="admin-textarea" value={draft.premiumSections[key]} onChange={(event) => updatePremium(key, event.target.value)} /></Field></div>)}</Section>
+                    </div>
                   )}
-                  {activeTab === "lineups" && <Section title="Składy i absencje"><div className="sm:col-span-2"><Field label="Składy"><textarea className="admin-textarea" value={draft.notes.lineupsNotes} onChange={(event) => updateNote("lineupsNotes", event.target.value)} /></Field></div><div className="sm:col-span-2"><Field label="Kontuzje i absencje"><textarea className="admin-textarea" value={draft.notes.injuriesNotes} onChange={(event) => updateNote("injuriesNotes", event.target.value)} /></Field></div></Section>}
-                  {activeTab === "notes" && <Section title="Notatki — wszystkie opcjonalne" description="Jeśli pozostawisz je puste, raport utworzy naturalne teksty automatycznie.">{notesFields.map(([key, label]) => <div key={key} className="sm:col-span-2"><Field label={label}><textarea className="admin-textarea" value={draft.notes[key]} onChange={(event) => updateNote(key, event.target.value)} /></Field></div>)}</Section>}
-                  {activeTab === "premium" && <Section title="Sekcje Premium">{([ ["cornersAnalysis", "Rzuty rożne"], ["cardsAnalysis", "Kartki"], ["shotsAnalysis", "Strzały"], ["halvesAnalysis", "Połowy"], ["advancedRisk", "Zaawansowane ryzyko"], ["h2hAdvanced", "Zaawansowane H2H"], ["lineupsAdvanced", "Zaawansowane składy"] ] as const).map(([key, label]) => <div key={key} className="sm:col-span-2"><Field label={label}><textarea className="admin-textarea" value={draft.premiumSections[key]} onChange={(event) => updatePremium(key, event.target.value)} /></Field></div>)}</Section>}
+                  {activeTab === "preview" && <section className="admin-form-section"><div className="studio-preview-toolbar"><div><p className="eyebrow">Podgląd raportu</p><h3 className="text-xl font-black text-white">Sprawdź układ przed publikacją</h3></div><div className="editor-mode-switch" aria-label="Szerokość podglądu"><button type="button" className={previewDevice === "mobile" ? "active" : ""} onClick={() => setPreviewDevice("mobile")}>Telefon</button><button type="button" className={previewDevice === "desktop" ? "active" : ""} onClick={() => setPreviewDevice("desktop")}>Desktop</button></div></div><div className={`studio-preview-frame studio-preview-${previewDevice}`}><ModelLivePreview analysis={normalizedDraft} /></div></section>}
                   {activeTab === "publication" && <Section title="Ustawienia publikacji"><Field label="Dostęp raportu"><select className="admin-input" value={draft.basic.status} onChange={(event) => updateBasic("status", event.target.value as AccessStatus)}><option value="free">Darmowa</option><option value="premium">Premium</option></select></Field><Field label="Poziom danych"><select className="admin-input" value={draft.basic.dataLevel} onChange={(event) => updateBasic("dataLevel", event.target.value as DataLevel)}><option value="basic">Podstawowy</option><option value="advanced">Zaawansowany</option></select></Field><Field label="Status"><select className="admin-input" value={draft.publicationStatus} onChange={(event) => change((current) => ({ ...current, publicationStatus: event.target.value as PublicationStatus }))}><option value="draft">Szkic</option><option value="published">Opublikowana</option><option value="archived">Zarchiwizowana</option></select></Field><Field label="Numer slotu"><input className="admin-input" value={draft.slotNumber} readOnly /></Field></Section>}
                 </>
               )}

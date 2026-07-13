@@ -12,7 +12,7 @@ export function AnalysisToast({ message, onClose }: { message: string; onClose: 
     <div className="analysis-toast" role="status" aria-live="polite">
       <span className="analysis-toast-dot" aria-hidden="true" />
       <p>{message}</p>
-      <button type="button" onClick={onClose} aria-label="Zamknij powiadomienie">×</button>
+      <button type="button" onClick={onClose}>Zamknij</button>
     </div>
   );
 }

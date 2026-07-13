@@ -18,7 +18,7 @@ export function ConfirmDialog({
   return (
     <div className="studio-modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
       <div className="studio-modal">
-        <button type="button" className="studio-modal-close" onClick={onCancel} aria-label="Zamknij">×</button>
+        <button type="button" className="studio-modal-close" onClick={onCancel}>Zamknij</button>
         <Logo href="" />
         <p className="eyebrow mt-7">Potwierdzenie</p>
         <h2 className="mt-3 text-2xl font-black text-white">{title}</h2>

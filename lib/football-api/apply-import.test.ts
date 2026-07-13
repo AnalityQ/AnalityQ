@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFootballImportToAnalysis } from "./apply-import";
+import { applyFootballImportToAnalysis, applyFootballRefreshToAnalysis } from "./apply-import";
 import { createEmptyAnalysis } from "../storage";
 import type { AggregatedLastMatches, FootballAnalysisSnapshot, FootballMatchImport } from "./types";
 
@@ -37,5 +37,34 @@ describe("applyFootballImportToAnalysis", () => {
     const manual = createEmptyAnalysis(1);
     manual.basic.league = "Wpis ręczny";
     expect(applyFootballImportToAnalysis(manual, imported).sourceMode).toBe("mixed");
+  });
+
+  it("odświeża tylko wybrany zakres i zachowuje ręcznie zmienione dane meczu", () => {
+    const initialSnapshot = {
+      ...imported.snapshot,
+      odds: { bookmaker: "Stare kursy" },
+      coverage: { odds: { status: "partial", samples: 1, message: "stare" } },
+      warnings: [],
+      fetchedAt: "2026-07-11T18:40:00Z",
+    } as FootballAnalysisSnapshot;
+    const refreshedSnapshot = {
+      ...initialSnapshot,
+      odds: { bookmaker: "Nowe kursy" },
+      coverage: { odds: { status: "complete", samples: 4, message: "nowe" } },
+      fetchedAt: "2026-07-12T10:00:00Z",
+    } as FootballAnalysisSnapshot;
+    const analysis = applyFootballImportToAnalysis(createEmptyAnalysis(1), { ...imported, snapshot: initialSnapshot });
+    analysis.basic.venue = "Ręcznie poprawiony stadion";
+
+    const result = applyFootballRefreshToAnalysis(analysis, {
+      ...imported,
+      snapshot: refreshedSnapshot,
+      fetchedAt: refreshedSnapshot.fetchedAt,
+    }, "odds");
+
+    expect(result.basic.venue).toBe("Ręcznie poprawiony stadion");
+    expect(result.dataSource?.snapshot?.odds).toEqual({ bookmaker: "Nowe kursy" });
+    expect(result.dataSource?.snapshot?.coverage.odds.status).toBe("complete");
+    expect(result.publicationStatus).toBe("draft");
   });
 });
