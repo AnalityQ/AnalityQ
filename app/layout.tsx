@@ -5,9 +5,17 @@ import { StudioShortcutModal } from "./components/StudioShortcutModal";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AnalityQ | Sportowe raporty statystyczne",
+  metadataBase: new URL("https://anality-q.vercel.app"),
+  title: "AnalityQ | Zobacz mecz głębiej",
   description:
-    "Platforma AnalityQ do raportów meczowych, prawdopodobieństw modelowych, edge, ryzyka i scenariuszy opartych o dane.",
+    "Forma, dom i wyjazd, składy, absencje, strzały, rożne, kartki i najważniejsze sygnały w jednym raporcie.",
+  openGraph: {
+    title: "AnalityQ | Zobacz mecz głębiej",
+    description: "Czytelne raporty meczowe oparte na danych i kontekście.",
+    images: [{ url: "/analityq-og-background.png", width: 1200, height: 630 }],
+    locale: "pl_PL",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

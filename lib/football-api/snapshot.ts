@@ -263,20 +263,44 @@ export function normalizeLineups(
     substitutes: (lineup.substitutes || []).map((player) => lineupPlayer(player, playerMeta)),
   }));
   const historicalStarters = [homeTeamId, awayTeamId].map((teamId) => {
-    const starts = new Map<number, { playerName: string; starts: number }>();
+    const starts = new Map<number, MatchLineupPlayer & { id: number; starts: number }>();
+    const formations = new Map<string, number>();
     let sampleSize = 0;
     for (const fixture of historyBundles) {
       const lineup = fixture.lineups?.find((entry) => entry.team.id === teamId);
       if (!lineup) continue;
       sampleSize += 1;
+      if (lineup.formation) {
+        formations.set(lineup.formation, (formations.get(lineup.formation) || 0) + 1);
+      }
+      const fixturePlayers = fixture.players?.find((entry) => entry.team.id === teamId);
+      const historyMeta = new Map<number, { photo: string | null; nationality: string | null; countryCode: string | null; captain: boolean }>();
+      for (const item of fixturePlayers?.players || []) {
+        const stat = item.statistics?.[0];
+        historyMeta.set(item.player.id, {
+          photo: item.player.photo || null,
+          nationality: item.player.nationality || null,
+          countryCode: countryPresentation(item.player.nationality).countryCode,
+          captain: stat?.games?.captain || false,
+        });
+      }
       for (const entry of lineup.startXI || []) {
         const id = entry.player?.id;
         if (!id) continue;
+        const player = lineupPlayer(entry, historyMeta);
         const currentStart = starts.get(id) || {
-          playerName: entry.player?.name || "Nieznany zawodnik",
+          ...player,
+          id,
           starts: 0,
         };
         currentStart.starts += 1;
+        currentStart.number ??= player.number;
+        currentStart.position ??= player.position;
+        currentStart.grid ??= player.grid;
+        currentStart.playerPhoto ??= player.playerPhoto;
+        currentStart.playerNationality ??= player.playerNationality;
+        currentStart.countryCode ??= player.countryCode;
+        currentStart.captain ||= player.captain;
         starts.set(id, currentStart);
       }
     }
@@ -286,10 +310,14 @@ export function normalizeLineups(
     return {
       teamId,
       teamName: team?.name || "Drużyna",
+      teamLogo: team?.logo || null,
+      formation: [...formations.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || null,
+      sampleSize,
       players: [...starts.entries()]
-        .map(([playerId, value]) => ({ playerId, ...value, sampleSize }))
+        .map(([, value]) => ({ ...value, sampleSize }))
         .sort((a, b) => b.starts - a.starts)
-        .slice(0, 11),
+        .slice(0, 18),
     };
   });
   return {

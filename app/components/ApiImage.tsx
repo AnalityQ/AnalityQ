@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { countryFlagEmoji } from "@/lib/countries";
 
 type ImageKind = "team" | "league" | "person";
 
@@ -27,9 +26,7 @@ export function shouldRenderApiImage(value?: string | null, failed = false) {
 }
 
 function Fallback({ kind, label, size }: { kind: ImageKind; label: string; size: number }) {
-  const content = kind === "team"
-    ? initialsForName(label)
-    : kind === "league" ? "🏆" : "●";
+  const content = initialsForName(label);
   return (
     <span
       className={`api-image-fallback api-image-fallback-${kind}`}
@@ -94,15 +91,20 @@ export function CountryLabel({
   code,
   name,
   compact = false,
+  flagSrc,
 }: {
   code?: string | null;
   name?: string | null;
   compact?: boolean;
+  flagSrc?: string | null;
 }) {
-  const flag = countryFlagEmoji(code);
   return (
     <span className="country-label">
-      <span aria-hidden="true">{flag || "🌐"}</span>
+      {flagSrc ? (
+        <ApiImage src={flagSrc} alt={name || "Flaga kraju"} kind="league" size={18} />
+      ) : (
+        <span className="country-code-fallback" aria-hidden="true">{code?.toUpperCase() || "NN"}</span>
+      )}
       {!compact && <span>{name || "Nieznany kraj"}</span>}
       <span className="sr-only">{name || "Nieznany kraj"}</span>
     </span>

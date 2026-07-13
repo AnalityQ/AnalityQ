@@ -59,9 +59,8 @@ export function StudioShortcutModal() {
           type="button"
           className="studio-modal-close"
           onClick={() => setOpen(false)}
-          aria-label="Zamknij"
         >
-          ×
+          Zamknij
         </button>
         <Logo href="" />
         <p className="eyebrow mt-7">Dostęp prywatny</p>

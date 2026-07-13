@@ -16,7 +16,7 @@ export function PricingCard({ plan }: { plan: PricingPlan }) {
           <h3 className="mt-2 text-3xl font-black text-white">{plan.name}</h3>
         </div>
         <p className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-bold text-slate-200">
-          Demo
+          {plan.name === "Premium" ? "Wkrótce" : "Dostępny"}
         </p>
       </div>
       <p className="mt-5 text-4xl font-black text-white">{plan.price}</p>

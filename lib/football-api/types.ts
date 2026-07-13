@@ -513,16 +513,27 @@ export type MatchTeamLineup = {
   substitutes: MatchLineupPlayer[];
 };
 
+export type HistoricalStarterPlayer = MatchLineupPlayer & {
+  id: number;
+  starts: number;
+  sampleSize: number;
+};
+
+export type HistoricalTeamLineup = {
+  teamId: number;
+  teamName: string;
+  teamLogo: string | null;
+  formation: string | null;
+  sampleSize: number;
+  players: HistoricalStarterPlayer[];
+};
+
 export type MatchLineupsData = {
   status: SectionStatus;
   reason: string | null;
   official: boolean;
   teams: MatchTeamLineup[];
-  historicalStarters: Array<{
-    teamId: number;
-    teamName: string;
-    players: Array<{ playerId: number; playerName: string; starts: number; sampleSize: number }>;
-  }>;
+  historicalStarters: HistoricalTeamLineup[];
 };
 
 export type PlayerInsight = {

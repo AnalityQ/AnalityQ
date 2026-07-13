@@ -22,12 +22,12 @@ import { Logo } from "./Logo";
 import { MarketAnalysisTable } from "./MarketAnalysisTable";
 import { MetricCard } from "./MetricCard";
 import { PremiumLockCard } from "./PremiumLockCard";
-import { PreviewModeToggle } from "./PreviewModeToggle";
 import { ValueIndexCard } from "./ValueIndexCard";
 import { DataCompletenessBar } from "./DataCompletenessBar";
 import { StatisticsComparison } from "./StatisticsComparison";
 import { CountryLabel, LeagueLogo, TeamLogo } from "./ApiImage";
 import { FootballReportTabs } from "./FootballReportTabs";
+import { PreMatchHighlights } from "./PreMatchHighlights";
 
 function formatDate(value: string) {
   if (!value) return "brak daty";
@@ -99,7 +99,6 @@ export function PublicReportClient({ slug }: { slug: string }) {
   const [match, setMatch] = useState<MatchAnalysisRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [mode, setMode] = useState<"free" | "premium">("free");
   const metrics = useMemo(() => (match ? calculateFullReportMetrics(match) : null), [match]);
 
   useEffect(() => {
@@ -221,7 +220,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
                   <LeagueLogo src={snapshot.fixture.leagueLogo} alt={snapshot.fixture.leagueName} size={44} />
                   <div>
                     <strong>{snapshot.fixture.leagueName}</strong>
-                    <span><CountryLabel code={snapshot.fixture.countryCode} name={snapshot.fixture.countryName} /> · sezon {snapshot.fixture.season}{snapshot.fixture.round ? ` · ${snapshot.fixture.round}` : ""}</span>
+                    <span><CountryLabel code={snapshot.fixture.countryCode} name={snapshot.fixture.countryName} flagSrc={snapshot.fixture.leagueFlag} /> · sezon {snapshot.fixture.season}{snapshot.fixture.round ? ` · ${snapshot.fixture.round}` : ""}</span>
                   </div>
                 </div>
                 <div className="report-team-identity">
@@ -247,26 +246,13 @@ export function PublicReportClient({ slug }: { slug: string }) {
               <RiskBadge level={metrics.effectiveRiskLevel} />
               <ConfidenceBadge value={metrics.confidence} />
             </div>
-            {match.basic.fotmobUrl && (
-              <a
-                href={match.basic.fotmobUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 inline-flex text-sm font-bold text-cyan-100 transition hover:text-white"
-              >
-                Źródło danych
-              </a>
-            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:min-w-[430px]">
             <ValueIndexCard value={metrics.valueIndex} />
             <div className="glass-card p-5">
               <p className="text-sm text-slate-400">Najlepszy sygnał value</p>
               <p className="mt-2 text-2xl font-black text-white">{metrics.bestValueMarket}</p>
-              <p className="mt-3 text-sm leading-6 text-slate-400">Tryb podglądu raportu</p>
-              <div className="mt-4">
-                <PreviewModeToggle mode={mode} onChange={setMode} />
-              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-400">Zakres raportu: {match.basic.status === "premium" ? "Premium" : "Darmowy"}</p>
             </div>
           </div>
         </div>
@@ -280,10 +266,12 @@ export function PublicReportClient({ slug }: { slug: string }) {
 
         <div className="mt-5"><DataCompletenessBar completeness={metrics.dataCompleteness} /></div>
 
+        {snapshot && <PreMatchHighlights snapshot={snapshot} />}
+
         {snapshot && (
           <FootballReportTabs
             snapshot={snapshot}
-            mode={mode}
+            mode={match.basic.status}
             summary={modelSummary}
             premiumSections={match.premiumSections}
           />
@@ -357,11 +345,11 @@ export function PublicReportClient({ slug }: { slug: string }) {
         <section className="mt-8 rounded-2xl border border-cyan-200/12 bg-cyan-200/[0.035] p-5">
           <p className="eyebrow">Transparentność raportu</p>
           <h2 className="mt-2 text-xl font-black text-white">Informacje o danych</h2>
-          {match.dataSource?.provider ? (
+          {match.dataSource ? (
             <>
               <p className="mt-3 text-sm leading-7 text-slate-300">{match.dataSource.fetchedAt ? `Dane zaktualizowano ${formatDate(match.dataSource.fetchedAt)}.` : "Brak daty pobrania danych."} Analiza obejmuje {match.dataSource.includedHomeFixtures.length} ostatnich spotkań gospodarzy i {match.dataSource.includedAwayFixtures.length} ostatnich spotkań gości.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="data-source-item"><span>Źródło danych</span><strong>{match.dataSource.provider}</strong></div>
+                <div className="data-source-item"><span>Rodzaj danych</span><strong>Dane meczowe zweryfikowane przed publikacją</strong></div>
                 <div className="data-source-item"><span>Ostatnie pobranie</span><strong>{match.dataSource.fetchedAt ? formatDate(match.dataSource.fetchedAt) : "Brak danych"}</strong></div>
                 <div className="data-source-item"><span>Spotkania gospodarzy</span><strong>{match.dataSource.includedHomeFixtures.length}</strong></div>
                 <div className="data-source-item"><span>Spotkania gości</span><strong>{match.dataSource.includedAwayFixtures.length}</strong></div>
@@ -374,7 +362,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
               </div>
             </>
           ) : (
-            <p className="mt-3 text-sm leading-7 text-slate-400">Dane do tej analizy zostały wprowadzone ręcznie przez administratora.</p>
+            <p className="mt-3 text-sm leading-7 text-slate-400">Raport nie zawiera informacji o czasie ostatniej aktualizacji danych.</p>
           )}
           <p className="mt-4 text-xs leading-6 text-slate-500">Kompletność danych wejściowych: {metrics.dataCompleteness.percent}%. Dane mogą być ręcznie weryfikowane i korygowane przed publikacją.</p>
         </section>
@@ -385,10 +373,9 @@ export function PublicReportClient({ slug }: { slug: string }) {
               <p className="eyebrow">Premium</p>
               <h2 className="mt-2 text-2xl font-black text-white">Rozszerzone sekcje raportu</h2>
             </div>
-            <PreviewModeToggle mode={mode} onChange={setMode} />
           </div>
 
-          {mode === "premium" ? (
+          {match.basic.status === "premium" ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {premiumCards.map(([title, text]) => (
                 <TextPanel key={title} title={title} text={text} />
@@ -400,7 +387,7 @@ export function PublicReportClient({ slug }: { slug: string }) {
                 <PremiumLockCard
                   key={title}
                   title={title}
-                  text="Zmień tryb podglądu na Premium, aby zobaczyć rozszerzoną sekcję raportu."
+                  text="Premium wkrótce — ta rozszerzona sekcja nie jest jeszcze dostępna w wariancie Darmowym."
                 />
               ))}
             </div>

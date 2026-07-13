@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import type {
   FootballAnalysisSnapshot,
-  MatchLineupsData,
   MatchStandingsData,
   NormalizedTeamMatchStats,
   PlayerInsight,
@@ -13,6 +12,7 @@ import type {
 import type { PremiumSections } from "@/lib/types";
 import { CountryLabel, LeagueLogo, PersonPhoto, TeamLogo } from "./ApiImage";
 import { PremiumLockCard } from "./PremiumLockCard";
+import { TacticalLineups } from "./TacticalLineups";
 
 type TabKey =
   | "summary"
@@ -26,12 +26,14 @@ type TabKey =
   | "h2h"
   | "lineups"
   | "players"
+  | "absences"
   | "signals"
+  | "risks"
   | "odds"
   | "quality";
 
 const tabs: Array<{ key: TabKey; label: string; premium: boolean }> = [
-  { key: "summary", label: "Podsumowanie", premium: false },
+  { key: "summary", label: "Przegląd", premium: false },
   { key: "recent", label: "Ostatnie 5", premium: false },
   { key: "venue", label: "Dom / wyjazd", premium: false },
   { key: "standings", label: "Tabela", premium: false },
@@ -40,9 +42,11 @@ const tabs: Array<{ key: TabKey; label: string; premium: boolean }> = [
   { key: "cards", label: "Kartki i faule", premium: true },
   { key: "shots", label: "Strzały", premium: true },
   { key: "h2h", label: "H2H", premium: true },
-  { key: "lineups", label: "Składy i absencje", premium: true },
-  { key: "players", label: "Kluczowi zawodnicy", premium: true },
-  { key: "signals", label: "Ryzyko i sygnały", premium: true },
+  { key: "lineups", label: "Składy", premium: false },
+  { key: "players", label: "Zawodnicy", premium: true },
+  { key: "absences", label: "Absencje", premium: false },
+  { key: "signals", label: "Sygnały", premium: false },
+  { key: "risks", label: "Ryzyko", premium: false },
   { key: "odds", label: "Kursy", premium: false },
   { key: "quality", label: "Jakość danych", premium: false },
 ];
@@ -70,6 +74,16 @@ function Stat({ label, value: statValue, note }: { label: string; value: ReactNo
 
 function SectionMessage({ children }: { children: ReactNode }) {
   return <p className="football-section-message">{children}</p>;
+}
+
+function publicMessage(message: string | null | undefined, fallback: string) {
+  return (message || fallback)
+    .replaceAll("API-Football", "Źródło danych")
+    .replaceAll("Dostawca", "Źródło danych")
+    .replaceAll("providera", "dostawcy danych")
+    .replaceAll("provider", "dostawca danych")
+    .replaceAll("endpoint", "zakres danych")
+    .replaceAll("cache", "pamięć podręczna");
 }
 
 function FormPill({ result }: { result: "W" | "D" | "L" }) {
@@ -152,7 +166,7 @@ function RecentTeam({ data, place }: { data: TeamRecentData; place: string }) {
       <div className="recent-match-list">
         {data.matches.map((match) => <MatchCard key={match.fixtureId} match={match} teamName={data.team.name} />)}
       </div>
-      {!data.matches.length && <SectionMessage>API-Football nie zwróciło zakończonych meczów {data.team.name} przed analizowanym spotkaniem.</SectionMessage>}
+      {!data.matches.length && <SectionMessage>Brak zakończonych meczów {data.team.name} przed analizowanym spotkaniem.</SectionMessage>}
     </section>
   );
 }
@@ -165,7 +179,7 @@ function ManualOverride({ title, text }: { title: string; text?: string }) {
 function SummaryTab({ snapshot, summary }: { snapshot: FootballAnalysisSnapshot; summary: string }) {
   return (
     <div className="space-y-5">
-      <section className="football-narrative"><p className="eyebrow">Raport dla tego meczu</p><p>{summary || snapshot.automaticSummary || "Raport zawiera zbyt mało danych, aby utworzyć liczbowe podsumowanie bez uogólnień."}</p></section>
+      <section className="football-narrative"><p className="eyebrow">Raport dla tego meczu</p><p>{publicMessage(summary || snapshot.automaticSummary, "Raport zawiera zbyt mało danych, aby utworzyć liczbowe podsumowanie bez uogólnień.")}</p></section>
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="football-panel"><h3>Forma w miejscu meczu</h3><Pair label="Punkty w próbce" home={snapshot.venueSplits.homeTeamAtHome.summary.points} away={snapshot.venueSplits.awayTeamAway.summary.points} homeName={snapshot.fixture.homeTeam.name} awayName={snapshot.fixture.awayTeam.name} /><Pair label="Średnie gole" home={snapshot.venueSplits.homeTeamAtHome.summary.averages.goalsFor} away={snapshot.venueSplits.awayTeamAway.summary.averages.goalsFor} homeName={snapshot.fixture.homeTeam.name} awayName={snapshot.fixture.awayTeam.name} /><Pair label="Średnie strzały" home={snapshot.venueSplits.homeTeamAtHome.summary.averages.shotsFor} away={snapshot.venueSplits.awayTeamAway.summary.averages.shotsFor} homeName={snapshot.fixture.homeTeam.name} awayName={snapshot.fixture.awayTeam.name} /></section>
         <section className="football-panel"><h3>Najważniejsze sygnały</h3><div className="signal-list">{snapshot.signals.slice(0, 4).map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.strength === "strong" ? "Silny" : signal.strength === "medium" ? "Średni" : "Słaby"}</span><small>{signal.confidence}% pewności</small></div><h4>{signal.title}</h4><p>{signal.evidence}</p><small>{signal.coverage}</small></article>)}</div>{!snapshot.signals.length && <SectionMessage>Brakuje wspólnego zestawu liczb obu drużyn wymaganego do wygenerowania konkretnego sygnału.</SectionMessage>}</section>
@@ -191,7 +205,7 @@ function standingRecord(record: MatchStandingsData["home"] extends infer U ? U :
 }
 
 function StandingsTab({ data }: { data: MatchStandingsData | null }) {
-  if (!data?.available || !data.home || !data.away) return <SectionMessage>{data?.reason || "API-Football nie zwróciło tabeli dla tych rozgrywek."}</SectionMessage>;
+  if (!data?.available || !data.home || !data.away) return <SectionMessage>{publicMessage(data?.reason, "Brak tabeli dla tych rozgrywek.")}</SectionMessage>;
   return (
     <div className="space-y-5">
       <div className="football-league-heading"><LeagueLogo src={data.leagueLogo} alt={data.leagueName} size={54} /><div><h3>{data.leagueName}</h3><CountryLabel code={data.countryCode} name={data.countryName} /></div></div>
@@ -224,25 +238,19 @@ function MetricsTab({ snapshot, kind, override }: { snapshot: FootballAnalysisSn
       <section className="football-panel"><h3>{title} · dom kontra wyjazd</h3>{rows.map(([label, homeValue, awayValue]) => <Pair key={label} label={label} home={homeValue} away={awayValue} homeName={snapshot.fixture.homeTeam.name} awayName={snapshot.fixture.awayTeam.name} />)}</section>
       {kind === "corners" && <div className="football-summary-grid"><Stat label={`${snapshot.fixture.homeTeam.name} · over 8,5`} value={`${home.summary.cornersOver85}/${home.summary.sampleSize}`} note="łączna liczba rożnych" /><Stat label={`${snapshot.fixture.homeTeam.name} · over 9,5`} value={`${home.summary.cornersOver95}/${home.summary.sampleSize}`} /><Stat label={`${snapshot.fixture.awayTeam.name} · over 8,5`} value={`${away.summary.cornersOver85}/${away.summary.sampleSize}`} /><Stat label={`${snapshot.fixture.awayTeam.name} · over 10,5`} value={`${away.summary.cornersOver105}/${away.summary.sampleSize}`} /></div>}
       {kind === "goals" && <div className="football-summary-grid"><Stat label={`${snapshot.fixture.homeTeam.name} · prowadzenie po pierwszym golu`} value={`${home.summary.scoredFirst}/${home.summary.sampleSize}`} /><Stat label={`${snapshot.fixture.homeTeam.name} · stracony pierwszy gol`} value={`${home.summary.concededFirst}/${home.summary.sampleSize}`} /><Stat label={`${snapshot.fixture.awayTeam.name} · zdobyty pierwszy gol`} value={`${away.summary.scoredFirst}/${away.summary.sampleSize}`} /><Stat label={`${snapshot.fixture.awayTeam.name} · stracony pierwszy gol`} value={`${away.summary.concededFirst}/${away.summary.sampleSize}`} /></div>}
-      {additional.length > 0 && <section className="football-panel"><h3>Pozostałe statystyki</h3><p>API-Football zwróciło dodatkowe rodzaje danych, których aplikacja nie usuwa:</p><div className="football-summary-grid">{additional.slice(0, 12).map((stat, index) => <Stat key={`${stat.key}-${index}`} label={stat.label} value={stat.value === null ? String(stat.rawValue ?? "—") : value(stat.value)} note="wartość z pojedynczego meczu" />)}</div></section>}
+      {additional.length > 0 && <section className="football-panel"><h3>Pozostałe statystyki</h3><p>Dla części spotkań dostępne są dodatkowe rodzaje danych:</p><div className="football-summary-grid">{additional.slice(0, 12).map((stat, index) => <Stat key={`${stat.key}-${index}`} label={stat.label} value={stat.value === null ? String(stat.rawValue ?? "—") : value(stat.value)} note="wartość z pojedynczego meczu" />)}</div></section>}
     </div>
   );
 }
 
 function H2HTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
   const h2h = snapshot.h2h;
-  if (!h2h?.matches.length) return <><ManualOverride title="H2H" text={override} /><SectionMessage>{h2h?.reason || "API-Football nie zwróciło bezpośrednich spotkań tych drużyn."}</SectionMessage></>;
+  if (!h2h?.matches.length) return <><ManualOverride title="H2H" text={override} /><SectionMessage>{publicMessage(h2h?.reason, "Brak bezpośrednich spotkań tych drużyn.")}</SectionMessage></>;
   return <div className="space-y-5"><ManualOverride title="H2H" text={override} /><div className="football-summary-grid"><Stat label={`Wygrane ${snapshot.fixture.homeTeam.name}`} value={h2h.homeWins} note={`${h2h.matches.length} meczów`} /><Stat label="Remisy" value={h2h.draws} /><Stat label={`Wygrane ${snapshot.fixture.awayTeam.name}`} value={h2h.awayWins} /><Stat label="Średnia goli" value={value(h2h.averageGoals)} /><Stat label="BTTS" value={`${h2h.bttsCount}/${h2h.matches.length}`} /><Stat label="Powyżej 2,5" value={`${h2h.over25Count}/${h2h.matches.length}`} /></div>{h2h.olderThanTwoSeasons > 0 && <SectionMessage>{h2h.olderThanTwoSeasons} z tych spotkań pochodzi sprzed ponad dwóch sezonów i powinno mieć niższą wagę niż aktualna forma.</SectionMessage>}<div className="recent-match-list">{h2h.matches.map((match) => <article key={match.fixtureId} className="recent-match-card"><p>{date(match.date)}</p><div className="recent-score-line"><TeamLogo src={match.homeTeam.logo} alt={match.homeTeam.name} size={30} /><strong>{match.homeTeam.name} {value(match.homeGoals, "", 0)}:{value(match.awayGoals, "", 0)} {match.awayTeam.name}</strong><TeamLogo src={match.awayTeam.logo} alt={match.awayTeam.name} size={30} /></div><div className="recent-match-stats"><span>Do przerwy <b>{value(match.halftimeHomeGoals, "", 0)}:{value(match.halftimeAwayGoals, "", 0)}</b></span><span>BTTS <b>{match.btts === null ? "—" : match.btts ? "tak" : "nie"}</b></span><span>Over 2,5 <b>{match.over25 === null ? "—" : match.over25 ? "tak" : "nie"}</b></span><span>Rożne <b>{value(match.totalCorners, "", 0)}</b></span><span>Kartki <b>{value(match.totalCards, "", 0)}</b></span><span>Strzały <b>{value(match.totalShots, "", 0)}</b></span></div></article>)}</div></div>;
 }
 
-function lineupTeam(team: MatchLineupsData["teams"][number]) {
-  return <section key={team.teamId} className="football-team-section"><div className="football-team-title"><TeamLogo src={team.teamLogo} alt={team.teamName} size={48} /><div><h3>{team.teamName}</h3><p>{team.formation || "ustawienie niepodane"}</p></div></div>{team.coachName && <div className="person-row"><PersonPhoto src={team.coachPhoto} alt={team.coachName} size={48} /><div><strong>{team.coachName}</strong><small>Trener</small></div></div>}<h4>Podstawowa jedenastka</h4><div className="lineup-grid">{team.startXI.map((player) => <div key={player.id || player.name} className="person-row"><PersonPhoto src={player.playerPhoto} alt={player.name} size={42} /><div><strong>{player.name}{player.captain ? " (C)" : ""}</strong><small>{player.position || "pozycja niepodana"}{player.number ? ` · #${player.number}` : ""}</small></div></div>)}</div><h4>Rezerwowi</h4><div className="lineup-grid compact">{team.substitutes.map((player) => <div key={player.id || player.name} className="person-row"><PersonPhoto src={player.playerPhoto} alt={player.name} size={36} /><div><strong>{player.name}</strong><small>{player.position || "pozycja niepodana"}</small></div></div>)}</div></section>;
-}
-
 function LineupsTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
-  const { lineups, injuries } = snapshot;
-  const injuriesList = [...injuries.missing, ...injuries.questionable];
-  return <div className="space-y-5"><ManualOverride title="Składy" text={override} />{lineups.official ? <div className="grid gap-4 lg:grid-cols-2">{lineups.teams.map(lineupTeam)}</div> : <SectionMessage>{lineups.reason || "Oficjalne składy nie zostały jeszcze opublikowane."}</SectionMessage>}<section className="football-panel"><h3>Najczęściej rozpoczynający ostatnie mecze</h3><p>Wzorzec historyczny — nie jest to przewidywany ani oficjalny skład.</p><div className="grid gap-4 lg:grid-cols-2">{lineups.historicalStarters.map((team) => <div key={team.teamId}><h4>{team.teamName}</h4><ul className="football-list">{team.players.map((player) => <li key={player.playerId}><span>{player.playerName}</span><strong>{player.starts}/{player.sampleSize} startów</strong></li>)}</ul></div>)}</div></section><section className="football-panel"><h3>Absencje</h3>{injuries.reason && !injuriesList.length ? <SectionMessage>{injuries.reason}</SectionMessage> : <div className="lineup-grid">{injuriesList.map((injury) => <div key={`${injury.teamId}-${injury.playerId}-${injury.playerName}`} className="person-row"><PersonPhoto src={injury.playerPhoto} alt={injury.playerName} size={48} /><div><strong>{injury.playerName}</strong><small>{injury.teamName} · {injury.type === "missing" ? "Nieobecny" : "Wątpliwy"}</small><small>{injury.reason || "przyczyna niepodana"}</small>{injury.regularity && <small>{injury.regularity}</small>}</div></div>)}</div>}</section></div>;
+  return <div className="space-y-5"><ManualOverride title="Składy" text={override} /><TacticalLineups snapshot={snapshot} /></div>;
 }
 
 function playerCard(player: PlayerInsight) {
@@ -251,21 +259,45 @@ function playerCard(player: PlayerInsight) {
 
 function PlayersTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
   const data = snapshot.playerInsights;
-  if (!data.home.length && !data.away.length) return <SectionMessage>{data.reason || "API-Football nie zwróciło statystyk zawodników w analizowanej próbce."}</SectionMessage>;
+  if (!data.home.length && !data.away.length) return <SectionMessage>{publicMessage(data.reason, "Brak statystyk zawodników w analizowanej próbce.")}</SectionMessage>;
   return <div className="grid gap-5 lg:grid-cols-2"><section className="football-team-section"><div className="football-team-title"><TeamLogo src={snapshot.fixture.homeTeam.logo} alt={snapshot.fixture.homeTeam.name} size={48} /><h3>{snapshot.fixture.homeTeam.name}</h3></div><div className="player-list">{data.home.map(playerCard)}</div></section><section className="football-team-section"><div className="football-team-title"><TeamLogo src={snapshot.fixture.awayTeam.logo} alt={snapshot.fixture.awayTeam.name} size={48} /><h3>{snapshot.fixture.awayTeam.name}</h3></div><div className="player-list">{data.away.map(playerCard)}</div></section></div>;
 }
 
 function SignalsTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
-  return <div className="space-y-5"><ManualOverride title="Zaawansowane ryzyko" text={override} /><section className="football-panel"><h3>Kluczowe sygnały</h3><div className="signal-list">{snapshot.signals.map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.category}</span><small>{signal.confidence}%</small></div><h4>{signal.title}</h4><p>{signal.evidence}</p><p>{signal.interpretation}</p><small>{signal.coverage}</small></article>)}</div>{!snapshot.signals.length && <SectionMessage>Nie wygenerowano sygnału, ponieważ wymagane dane obu drużyn nie są jednocześnie dostępne.</SectionMessage>}</section><section className="football-panel"><h3>Ryzyka tej analizy</h3><div className="risk-list">{snapshot.risks.map((risk) => <article key={risk.id} className={`match-risk risk-${risk.level}`}><span>{risk.level === "high" ? "Wysokie" : risk.level === "medium" ? "Średnie" : "Niskie"}</span><h4>{risk.title}</h4><p>{risk.evidence}</p><small>{risk.impact}</small></article>)}</div>{!snapshot.risks.length && <SectionMessage>W dostępnych danych nie wykryto konkretnego ryzyka liczbowego; nie oznacza to braku niepewności sportowej.</SectionMessage>}</section></div>;
+  return <div className="space-y-5"><ManualOverride title="Sygnały" text={override} /><section className="football-panel"><h3>Kluczowe sygnały</h3><div className="signal-list">{snapshot.signals.map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.category}</span><small>{signal.confidence}%</small></div><h4>{signal.title}</h4><p>{signal.evidence}</p><p>{signal.interpretation}</p><small>{signal.coverage}</small></article>)}</div>{!snapshot.signals.length && <SectionMessage>Nie wygenerowano sygnału, ponieważ wymagane dane obu drużyn nie są jednocześnie dostępne.</SectionMessage>}</section></div>;
+}
+
+function RisksTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
+  return <div className="space-y-5"><ManualOverride title="Zaawansowane ryzyko" text={override} /><section className="football-panel"><h3>Ryzyka tej analizy</h3><div className="risk-list">{snapshot.risks.map((risk) => <article key={risk.id} className={`match-risk risk-${risk.level}`}><span>{risk.level === "high" ? "Wysokie" : risk.level === "medium" ? "Średnie" : "Niskie"}</span><h4>{risk.title}</h4><p>{risk.evidence}</p><small>{risk.impact}</small></article>)}</div>{!snapshot.risks.length && <SectionMessage>W dostępnych danych nie wykryto konkretnego ryzyka liczbowego; nie oznacza to braku niepewności sportowej.</SectionMessage>}</section></div>;
+}
+
+function AbsencesTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
+  const injuries = [...snapshot.injuries.missing, ...snapshot.injuries.questionable];
+  if (!injuries.length) return <SectionMessage>{publicMessage(snapshot.injuries.reason, "Brak potwierdzonych absencji w dostępnych danych.")}</SectionMessage>;
+  return <div className="grid gap-4 lg:grid-cols-2">{[snapshot.fixture.homeTeam, snapshot.fixture.awayTeam].map((team) => <section key={team.id} className="football-team-section"><div className="football-team-title"><TeamLogo src={team.logo} alt={team.name} size={48} /><h3>{team.name}</h3></div><div className="player-list">{injuries.filter((injury) => injury.teamId === team.id).map((injury) => <article key={`${injury.playerId}-${injury.playerName}`} className="player-card"><PersonPhoto src={injury.playerPhoto} alt={injury.playerName} size={58} /><div><h4>{injury.playerName}</h4><p>{injury.playerPosition || "Pozycja: brak danych"}</p></div><div className="player-metrics"><span>Status <b>{injury.type === "missing" ? "Nieobecny" : "Wątpliwy"}</b></span><span>Przyczyna <b>{injury.reason || "brak danych"}</b></span></div>{injury.regularity && <small>{injury.regularity}</small>}</article>)}</div>{!injuries.some((injury) => injury.teamId === team.id) && <SectionMessage>Brak zgłoszonych absencji dla tej drużyny.</SectionMessage>}</section>)}</div>;
 }
 
 function OddsTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
   const odds = snapshot.odds;
-  return <div className="space-y-5"><SectionMessage>Kursy API-Football są źródłem opcjonalnym. Kursy wpisane ręcznie w Studio mają pierwszeństwo i nie są automatycznie nadpisywane.</SectionMessage>{odds ? <section className="football-panel"><h3>{odds.bookmaker || "Dostawca kursów"}</h3><p>Aktualizacja: {odds.updatedAt ? date(odds.updatedAt) : "czas niepodany"}</p><div className="odds-market-grid">{odds.markets.slice(0, 12).map((market) => <article key={`${market.id}-${market.name}`}><strong>{market.name}</strong>{market.values.map((item) => <div key={item.label}><span>{item.label}</span><b>{value(item.odd, "", 2)}</b></div>)}</article>)}</div></section> : <SectionMessage>API-Football nie zwróciło kursów przedmeczowych dla tego spotkania. Dostępność zależy od ligi, bukmachera i czasu do pierwszego gwizdka.</SectionMessage>}</div>;
+  return <div className="space-y-5"><SectionMessage>Kursy z automatycznego źródła są opcjonalne. Kursy ręcznie zweryfikowane przed publikacją mają pierwszeństwo.</SectionMessage>{odds ? <section className="football-panel"><h3>{odds.bookmaker || "Dostawca kursów"}</h3><p>Aktualizacja: {odds.updatedAt ? date(odds.updatedAt) : "czas niepodany"}</p><div className="odds-market-grid">{odds.markets.slice(0, 12).map((market) => <article key={`${market.id}-${market.name}`}><strong>{market.name}</strong>{market.values.map((item) => <div key={item.label}><span>{item.label}</span><b>{value(item.odd, "", 2)}</b></div>)}</article>)}</div></section> : <SectionMessage>Brak kursów przedmeczowych dla tego spotkania. Dostępność zależy od ligi, bukmachera i czasu do pierwszego gwizdka.</SectionMessage>}</div>;
 }
 
 function QualityTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
-  return <div className="space-y-5"><section className="football-panel"><h3>Kompletność sekcji</h3><div className="coverage-grid">{Object.entries(snapshot.coverage).map(([key, section]) => <article key={key} className={`coverage-card coverage-${section.status}`}><span>{section.status}</span><h4>{key}</h4><strong>{section.samples} rekordów / próbek</strong><p>{section.message}</p></article>)}</div></section><section className="football-panel"><h3>Zapytania importu</h3><p>{snapshot.requestSummary.totalRequests} logicznych wywołań providera · limit równoległości {snapshot.requestSummary.concurrencyLimit}. Odpowiedzi z cache nie zużywają kolejnego limitu API.</p><p>{snapshot.requestSummary.cacheStrategy}</p><div className="football-table-scroll"><table className="football-table"><thead><tr><th>Endpoint</th><th>Status</th><th>Wywołania</th><th>Informacja</th></tr></thead><tbody>{snapshot.requestSummary.endpoints.map((item) => <tr key={item.endpoint}><td><code>{item.endpoint}</code></td><td>{item.status}</td><td>{item.requests}</td><td>{item.message}</td></tr>)}</tbody></table></div></section>{snapshot.warnings.length > 0 && <section className="football-panel"><h3>Ostrzeżenia</h3><ul className="football-list">{snapshot.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></section>}<p className="text-xs text-slate-500">Snapshot znormalizowanych danych: wersja {snapshot.version} · pobrano {date(snapshot.fetchedAt)} · źródło API-Football.</p></div>;
+  const labels: Record<keyof FootballAnalysisSnapshot["coverage"], string> = { fixture: "Mecz", recentForm: "Ostatnia forma", venueSplits: "Dom i wyjazd", standings: "Tabela", teamStatistics: "Statystyki drużyn", h2h: "Historia spotkań", injuries: "Absencje", lineups: "Składy", players: "Zawodnicy", events: "Zdarzenia meczowe", predictions: "Kontekst prognostyczny", odds: "Kursy" };
+  const status = (value: string) => value === "complete" ? "Pełne" : value === "partial" ? "Częściowe" : value === "error" ? "Błąd pobrania" : "Brak danych";
+  return <div className="space-y-5"><section className="football-panel"><h3>Kompletność sekcji</h3><p>Każda sekcja pokazuje własną dostępność i wielkość próby. Brak danych nie jest zamieniany na zero.</p><div className="coverage-grid">{Object.entries(snapshot.coverage).map(([key, section]) => <article key={key} className={`coverage-card coverage-${section.status}`}><span>{status(section.status)}</span><h4>{labels[key as keyof typeof labels]}</h4><strong>{section.samples} rekordów / próbek</strong><p>{publicMessage(section.message, "Brak dodatkowej informacji.")}</p></article>)}</div></section>{snapshot.warnings.length > 0 && <section className="football-panel"><h3>Ostrzeżenia jakości</h3><ul className="football-list">{snapshot.warnings.map((warning) => <li key={warning}>{publicMessage(warning, "Ostrzeżenie dotyczące jakości danych.")}</li>)}</ul></section>}<p className="text-xs text-slate-500">Dane zaktualizowano {date(snapshot.fetchedAt)}. Raport mógł zostać ręcznie zweryfikowany przed publikacją.</p></div>;
+}
+
+function tabStatus(key: TabKey, snapshot: FootballAnalysisSnapshot) {
+  const mapped = key === "lineups" ? snapshot.coverage.lineups.status
+    : key === "players" ? snapshot.coverage.players.status
+      : key === "absences" ? snapshot.coverage.injuries.status
+        : key === "standings" ? snapshot.coverage.standings.status
+          : key === "h2h" ? snapshot.coverage.h2h.status
+            : key === "odds" ? snapshot.coverage.odds.status
+              : key === "recent" || key === "venue" || key === "goals" || key === "corners" || key === "cards" || key === "shots" ? snapshot.coverage.recentForm.status
+                : snapshot.signals.length || key === "quality" || key === "summary" ? "complete" : "unavailable";
+  return mapped === "complete" ? "pełne" : mapped === "partial" ? "częściowe" : "brak danych";
 }
 
 export function FootballReportTabs({ snapshot, mode, summary, premiumSections }: { snapshot: FootballAnalysisSnapshot; mode: "free" | "premium"; summary: string; premiumSections: PremiumSections }) {
@@ -285,14 +317,28 @@ export function FootballReportTabs({ snapshot, mode, summary, premiumSections }:
     case "h2h": content = <H2HTab snapshot={snapshot} override={premiumSections.h2hAdvanced} />; break;
     case "lineups": content = <LineupsTab snapshot={snapshot} override={premiumSections.lineupsAdvanced} />; break;
     case "players": content = <PlayersTab snapshot={snapshot} />; break;
+    case "absences": content = <AbsencesTab snapshot={snapshot} />; break;
     case "signals": content = <SignalsTab snapshot={snapshot} override={premiumSections.advancedRisk} />; break;
+    case "risks": content = <RisksTab snapshot={snapshot} override={premiumSections.advancedRisk} />; break;
     case "odds": content = <OddsTab snapshot={snapshot} />; break;
     case "quality": content = <QualityTab snapshot={snapshot} />; break;
   }
+  function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    const lastIndex = tabs.length - 1;
+    const nextIndex = event.key === "ArrowRight" ? (index === lastIndex ? 0 : index + 1)
+      : event.key === "ArrowLeft" ? (index === 0 ? lastIndex : index - 1)
+        : event.key === "Home" ? 0
+          : event.key === "End" ? lastIndex
+            : null;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    setActive(tabs[nextIndex].key);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role='tab']")[nextIndex]?.focus();
+  }
   return (
     <section className="football-report-tabs">
-      <nav className="football-tab-list" aria-label="Sekcje raportu">{tabs.map((item) => <button key={item.key} type="button" className={active === item.key ? "active" : ""} onClick={() => setActive(item.key)} aria-current={active === item.key ? "page" : undefined}>{item.label}{item.premium && <span aria-label="Premium">P</span>}</button>)}</nav>
-      <div className="football-tab-panel">{locked ? <PremiumLockCard title={tab.label} text="Zmień tryb podglądu na Premium, aby zobaczyć strukturalną sekcję z liczbami, próbką i konkretnymi wnioskami." /> : content}</div>
+      <nav className="football-tab-list" aria-label="Sekcje raportu" role="tablist">{tabs.map((item, index) => <button key={item.key} id={`report-tab-${item.key}`} type="button" role="tab" aria-selected={active === item.key} aria-controls={`report-panel-${item.key}`} tabIndex={active === item.key ? 0 : -1} className={active === item.key ? "active" : ""} onClick={() => setActive(item.key)} onKeyDown={(event) => handleTabKey(event, index)}><strong>{item.label}</strong><small>{tabStatus(item.key, snapshot)}</small>{item.premium && <span aria-label="Premium">P</span>}</button>)}</nav>
+      <div id={`report-panel-${active}`} className="football-tab-panel" role="tabpanel" aria-labelledby={`report-tab-${active}`} tabIndex={0}>{locked ? <PremiumLockCard title={tab.label} text="Premium wkrótce — rozszerzona sekcja nie jest jeszcze dostępna w wariancie Darmowym." /> : content}</div>
     </section>
   );
 }

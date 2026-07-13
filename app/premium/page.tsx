@@ -9,11 +9,11 @@ export default function PremiumPage() {
       <section className="section-shell">
         <SectionHeader
           eyebrow="Premium"
-          title="Rozbudowana wersja planów"
-          description="Pakiety są częścią demonstracji produktu. Pokazują zakres przyszłych funkcji bez uruchamiania płatności."
+          title="Wybierz poziom szczegółowości"
+          description="Darmowy dostęp daje szybki obraz meczu. Premium za 29,99 zł miesięcznie rozszerzy raport o pełny kontekst — płatności nie są jeszcze uruchomione."
           align="center"
         />
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+        <div className="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
           {pricingPlans.map((plan) => (
             <PricingCard key={plan.name} plan={plan} />
           ))}
@@ -23,26 +23,24 @@ export default function PremiumPage() {
       <section className="section-shell !pt-0">
         <SectionHeader
           eyebrow="Porównanie"
-          title="Darmowy vs Premium vs Pro"
-          description="Czytelny zakres dostępu do raportów, metryk i narzędzi pracy."
+          title="Darmowy vs Premium"
+          description="Jasny zakres sekcji dostępnych w obu wariantach."
         />
         <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.04]">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 text-slate-300">
                 <th className="p-4 font-bold">Funkcja</th>
                 <th className="p-4 font-bold">Darmowy</th>
                 <th className="p-4 font-bold text-amber-100">Premium</th>
-                <th className="p-4 font-bold text-cyan-100">Pro</th>
               </tr>
             </thead>
             <tbody>
-              {comparisonRows.map(([feature, free, premium, pro]) => (
+              {comparisonRows.map(([feature, free, premium]) => (
                 <tr key={feature} className="border-b border-white/10 last:border-0">
                   <td className="p-4 font-semibold text-white">{feature}</td>
                   <td className="p-4 text-slate-300">{free}</td>
                   <td className="p-4 text-slate-300">{premium}</td>
-                  <td className="p-4 text-slate-300">{pro}</td>
                 </tr>
               ))}
             </tbody>

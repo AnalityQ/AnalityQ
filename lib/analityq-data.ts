@@ -6,7 +6,7 @@ export const modelDisclaimer = disclaimer;
 export const navItems = [
   { label: "Start", href: "/" },
   { label: "Analizy", href: "/analizy" },
-  { label: "Jak działa model", href: "/jak-to-dziala" },
+  { label: "Jak działa AnalityQ", href: "/jak-to-dziala" },
   { label: "Premium", href: "/premium" },
   { label: "FAQ", href: "/faq" },
 ];
@@ -61,7 +61,7 @@ export const pipelineSteps = [
   },
   {
     title: "Pobranie danych",
-    text: "Serwer pobiera dane API-Football, deduplikuje sezonowe mecze i przygotowuje próby ogółem oraz dom/wyjazd.",
+    text: "Dane meczowe są pobierane po stronie serwera i porządkowane dla próby ogółem oraz dom/wyjazd.",
   },
   {
     title: "Analiza ostatnich meczów",
@@ -109,51 +109,38 @@ export const pricingPlans = [
     name: "Darmowy",
     price: "0 zł",
     label: "Podstawowy raport",
-    description: "Publiczny widok raportu z podstawowymi metrykami i tabelą kursów.",
+    description: "Szybki obraz meczu i wybrane sekcje raportu bez opłat.",
     features: [
-      "Podsumowanie modelu i forma drużyn",
-      "Średnie z ostatnich 5 meczów",
-      "Tabela kursów, prawdopodobieństwo z kursu i edge",
-      "Podstawowy Value Index",
+      "Najważniejsze sygnały i ryzyka",
+      "Forma drużyn oraz dom i wyjazd",
+      "Podstawowe statystyki meczu",
+      "Informacja o jakości danych",
     ],
   },
   {
     name: "Premium",
-    price: "49 zł",
+    price: "29,99 zł",
     label: "Pełny raport",
     highlighted: true,
-    description: "Rozszerzone sekcje analityczne dla głębszej pracy z raportem.",
+    description: "Pełny kontekst meczu dla osób, które chcą wejść głębiej w dane.",
     features: [
+      "Pełne porównania i trendy",
       "Rzuty rożne, kartki i strzały",
-      "Analiza połówek",
-      "Zaawansowane ryzyko",
-      "H2H, składy i absencje",
-      "Rozszerzone notatki premium",
-    ],
-  },
-  {
-    name: "Pro",
-    price: "129 zł",
-    label: "Przestrzeń robocza",
-    description: "Proces pracy dla wielu raportów, kopii zapasowych i watchlisty.",
-    features: [
-      "20 slotów analiz",
-      "Kopia zapasowa JSON",
-      "Lista obserwacyjna sygnałów value",
-      "Archiwum raportów",
+      "Składy, zawodnicy i absencje",
+      "Historia spotkań i scenariusze",
+      "Rozszerzona ocena ryzyka",
     ],
   },
 ];
 
 export const comparisonRows = [
-  ["Raport podstawowy", "Tak", "Tak", "Tak"],
-  ["Tabela kursów i edge", "Tak", "Tak", "Tak"],
-  ["Sekcje rożnych", "Zablokowane", "Tak", "Tak"],
-  ["Sekcje kartek", "Zablokowane", "Tak", "Tak"],
-  ["Sekcje strzałów", "Zablokowane", "Tak", "Tak"],
-  ["Analiza połówek", "Zablokowane", "Tak", "Tak"],
-  ["Kopia zapasowa JSON", "Nie", "Nie", "Tak"],
-  ["Przestrzeń robocza", "Nie", "Nie", "Tak"],
+  ["Najważniejsze sygnały", "Tak", "Tak"],
+  ["Forma i dom/wyjazd", "Tak", "Tak"],
+  ["Pełne porównania", "Wybrane", "Tak"],
+  ["Rzuty rożne, kartki i strzały", "Wybrane", "Tak"],
+  ["Składy i profile zawodników", "Podgląd", "Tak"],
+  ["Absencje i ryzyka", "Podstawowe", "Pełne"],
+  ["Historia spotkań i scenariusze", "Wybrane", "Tak"],
 ];
 
 export const faqItems = [
@@ -180,7 +167,7 @@ export const faqItems = [
   {
     question: "Skąd są dane?",
     answer:
-      "Dane meczowe są pobierane po stronie serwera z API-Football i normalizowane przed zapisem raportu. Administrator może skorygować dane i opisy przed publikacją. Kursy ręczne mają pierwszeństwo; AnalityQ nie scrapuje FotMob ani Fortuny.",
+      "Dane meczowe są pobierane po stronie serwera, normalizowane i sprawdzane przed publikacją. W raporcie pokazujemy również braki danych, aby nie udawać pewności tam, gdzie jej nie ma.",
   },
   {
     question: "Czy publicznie widać szkice?",
@@ -193,8 +180,8 @@ export const faqItems = [
       "Poziom ryzyka opisuje zmienność raportu: wpływ absencji, jakości danych, składów, stylu gry i sprzecznych sygnałów.",
   },
   {
-    question: "Czy to jest produkcyjne zabezpieczenie?",
+    question: "Jak powstaje raport?",
     answer:
-      "Nie. Hasło w przestrzeni roboczej jest blokadą demonstracyjną dla lokalnego prototypu i nie zastępuje prawdziwego uwierzytelniania.",
+      "Raport łączy aktualny kontekst spotkania z historycznymi statystykami, a następnie przechodzi ręczną kontrolę przed publikacją.",
   },
 ];
