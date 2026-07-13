@@ -10,10 +10,62 @@ function configuredBaseUrl() {
   return (process.env.FOOTBALL_API_BASE_URL || defaultBaseUrl).replace(/\/+$/, "");
 }
 
-function apiErrors(errors: ApiFootballEnvelope<unknown>["errors"]) {
+function redactApiKey(value: string, apiKey: string) {
+  return apiKey ? value.replaceAll(apiKey, "[REDACTED]") : value;
+}
+
+function safeLogParams(
+  params: Record<string, string | number | boolean | undefined>,
+  apiKey: string,
+) {
+  return Object.fromEntries(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [
+        key,
+        /api[-_]?key|token|authorization|auth/i.test(key)
+          ? "[REDACTED]"
+          : typeof value === "string"
+            ? redactApiKey(value, apiKey)
+            : value,
+      ]),
+  );
+}
+
+function apiErrors(
+  errors: ApiFootballEnvelope<unknown>["errors"],
+  apiKey: string,
+) {
   if (!errors) return [];
-  if (Array.isArray(errors)) return errors.filter(Boolean);
-  return Object.values(errors).filter(Boolean);
+  const values = Array.isArray(errors) ? errors : Object.values(errors);
+  return values
+    .filter((value): value is string => typeof value === "string")
+    .map((value) =>
+      redactApiKey(value, apiKey)
+        .replace(/[\u0000-\u001f\u007f]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 240),
+    )
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function logProviderErrors(
+  endpoint: string,
+  status: number,
+  params: Record<string, string | number | boolean | undefined>,
+  errors: string[],
+  apiKey: string,
+) {
+  if (!errors.length) return;
+
+  console.error("[API-Football] Provider response errors", {
+    endpoint,
+    status,
+    params: safeLogParams(params, apiKey),
+    errors,
+  });
 }
 
 function classifyProviderError(messages: string[]) {
@@ -43,7 +95,7 @@ export async function apiFootballRequest<T>(
   }
   const cacheKey = `${endpoint}?${search.toString()}`;
   if (!options.refresh) {
-    const cached = getCached<T>(cacheKey);
+    const cached = await getCached<T>(cacheKey);
     if (cached !== null) return cached;
   }
 
@@ -61,6 +113,33 @@ export async function apiFootballRequest<T>(
       signal: controller.signal,
     });
 
+    let providerBody = "";
+    try {
+      providerBody = await response.text();
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error;
+    }
+
+    let envelope: ApiFootballEnvelope<T> | null = null;
+    try {
+      envelope = JSON.parse(providerBody) as ApiFootballEnvelope<T>;
+    } catch {
+      // Status-based errors below still provide a safe public response.
+    }
+
+    const errors = apiErrors(envelope?.errors, apiKey);
+
+    if (!response.ok) {
+      console.error("[API-Football] Provider HTTP error", {
+        endpoint,
+        status: response.status,
+        params: safeLogParams(params, apiKey),
+        response: redactApiKey(providerBody, apiKey).slice(0, 1000),
+      });
+    }
+
+    logProviderErrors(endpoint, response.status, params, errors, apiKey);
+
     if (response.status === 429) {
       throw new FootballApiError("RATE_LIMIT", "Limit zapytań API został wykorzystany.", 429);
     }
@@ -71,14 +150,12 @@ export async function apiFootballRequest<T>(
       throw new FootballApiError("PROVIDER_ERROR", "Nie udało się połączyć z dostawcą danych.", 502);
     }
 
-    const envelope = (await response.json()) as ApiFootballEnvelope<T>;
-    const errors = apiErrors(envelope.errors);
     if (errors.length) throw classifyProviderError(errors);
-    if (envelope.response === undefined) {
+    if (!envelope || envelope.response === undefined) {
       throw new FootballApiError("INVALID_RESPONSE", "Dostawca zwrócił niepełną odpowiedź.", 502);
     }
 
-    setCached(cacheKey, envelope.response, options.cacheTtlMs);
+    await setCached(cacheKey, envelope.response, options.cacheTtlMs);
     return envelope.response;
   } catch (error) {
     if (error instanceof FootballApiError) throw error;

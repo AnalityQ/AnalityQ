@@ -2,6 +2,8 @@ import { apiFootballRequest } from "./client";
 import { footballCacheTtl } from "./cache";
 import type {
   ApiFootballFixture,
+  ApiFootballInjury,
+  ApiFootballLineup,
   ApiFootballTeamSearchItem,
   ApiFootballTeamStatistics,
   FootballDataProvider,
@@ -34,26 +36,43 @@ export class ApiFootballProvider implements FootballDataProvider {
     options?: ProviderRequestOptions,
   ) {
     const before = new Date(beforeDate);
-    const date = Number.isNaN(before.getTime()) ? beforeDate.slice(0, 10) : before.toISOString().slice(0, 10);
+    const beforeTime = before.getTime();
+
+    const toDate = Number.isNaN(beforeTime)
+      ? beforeDate.slice(0, 10)
+      : before.toISOString().slice(0, 10);
+
+    const fromDate = Number.isNaN(beforeTime)
+      ? undefined
+      : new Date(beforeTime - 550 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10);
+
     const fixtures = await apiFootballRequest<ApiFootballFixture[]>(
       "/fixtures",
       {
         team: teamId,
-        last: Math.max(12, limit * 3),
-        to: date,
-        status: "FT-AET-PEN",
+        from: fromDate,
+        to: toDate,
         timezone: "Europe/Warsaw",
       },
       { cacheTtlMs: footballCacheTtl.teamLastFixtures, refresh: options?.refresh },
     );
 
-    const beforeTime = before.getTime();
     return fixtures
       .filter((fixture) => {
         const kickoff = new Date(fixture.fixture.date).getTime();
-        return finishedStatuses.has(fixture.fixture.status.short) && (Number.isNaN(beforeTime) || kickoff < beforeTime);
+
+        return (
+          finishedStatuses.has(fixture.fixture.status.short) &&
+          (Number.isNaN(beforeTime) || kickoff < beforeTime)
+        );
       })
-      .sort((a, b) => new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.fixture.date).getTime() -
+          new Date(a.fixture.date).getTime(),
+      )
       .slice(0, Math.min(5, Math.max(1, limit)));
   }
 
@@ -72,6 +91,22 @@ export class ApiFootballProvider implements FootballDataProvider {
       { cacheTtlMs: footballCacheTtl.fixtureDetails, refresh: options?.refresh },
     );
     return fixtures[0] || null;
+  }
+
+  async getTeamInjuries(teamId: number, leagueId: number, season: number, options?: ProviderRequestOptions) {
+    return apiFootballRequest<ApiFootballInjury[]>(
+      "/injuries",
+      { team: teamId, league: leagueId, season },
+      { cacheTtlMs: footballCacheTtl.injuries, refresh: options?.refresh },
+    );
+  }
+
+  async getFixtureLineups(fixtureId: number, options?: ProviderRequestOptions) {
+    return apiFootballRequest<ApiFootballLineup[]>(
+      "/fixtures/lineups",
+      { fixture: fixtureId },
+      { cacheTtlMs: footballCacheTtl.lineups, refresh: options?.refresh },
+    );
   }
 }
 
