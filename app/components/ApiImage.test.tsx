@@ -7,6 +7,8 @@ describe("ApiImage", () => {
     expect(isAllowedApiImageUrl("https://media.api-sports.io/football/teams/364.png")).toBe(true);
     expect(isAllowedApiImageUrl("http://media.api-sports.io/football/teams/364.png")).toBe(false);
     expect(isAllowedApiImageUrl("https://example.com/logo.png")).toBe(false);
+    expect(isAllowedApiImageUrl("/football/teams/364.png")).toBe(true);
+    expect(isAllowedApiImageUrl("//media.api-sports.io/football/teams/364.png")).toBe(true);
   });
 
   it("przełącza się na fallback po błędzie ładowania", () => {

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { checkStudioLoginRateLimit } from "@/lib/server/studio-login-rate-limit";
+import {
+  isStudioLoginRateLimited,
+  recordStudioLoginFailure,
+  resetStudioLoginRateLimit,
+} from "@/lib/server/studio-login-rate-limit";
 import {
   createStudioSessionToken,
   hasValidStudioSession,
@@ -16,7 +20,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!checkStudioLoginRateLimit(request)) {
+  if (isStudioLoginRateLimited(request)) {
     return Response.json(
       { error: { code: "LOGIN_RATE_LIMIT", message: "Przekroczono limit prób logowania. Spróbuj ponownie później." } },
       { status: 429 },
@@ -48,11 +52,14 @@ export async function POST(request: Request) {
       );
     }
     if (result === "invalid") {
+      recordStudioLoginFailure(request);
       return Response.json(
         { error: { code: "INVALID_PASSWORD", message: "Nieprawidłowe hasło." } },
         { status: 401 },
       );
     }
+
+    resetStudioLoginRateLimit(request);
 
     const token = createStudioSessionToken();
     if (!token) {

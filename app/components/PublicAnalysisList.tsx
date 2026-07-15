@@ -191,7 +191,7 @@ export function PublicAnalysisList() {
           />
         </div>
       ) : (
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filteredMatches.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}

@@ -11,6 +11,8 @@ import type {
   MatchLineupPlayer,
   PlayerInsight,
 } from "@/lib/football-api/types";
+import { localizePlayerPosition, localizeTeamName } from "@/lib/countries";
+import { formatPolishCount } from "@/lib/polish-count";
 import { CountryLabel, PersonPhoto, TeamLogo } from "./ApiImage";
 
 type DisplayPlayer = MatchLineupPlayer & {
@@ -32,6 +34,7 @@ type DisplayTeam = {
   coachCountryCode: string | null;
   status: "official" | "predicted" | "unavailable";
   statusLabel: string;
+  sourceNote: string | null;
   players: DisplayPlayer[];
   substitutes: DisplayPlayer[];
   confidence: number | null;
@@ -118,7 +121,7 @@ function PlayerSheet({ selected, onClose }: { selected: SelectedPlayer; onClose:
         <div className="player-sheet-identity">
           <PersonPhoto src={player.playerPhoto || insight?.playerPhoto} alt={player.name} size={84} />
           <div>
-            <p>{team.teamName}</p>
+            <p>{localizeTeamName(team.teamName)}</p>
             <h3 id="player-sheet-title">{player.name}</h3>
             {(player.playerNationality || insight?.playerNationality) && (
               <CountryLabel code={player.countryCode || insight?.countryCode} name={player.playerNationality || insight?.playerNationality} />
@@ -127,7 +130,7 @@ function PlayerSheet({ selected, onClose }: { selected: SelectedPlayer; onClose:
         </div>
         {availability && <p className="player-sheet-alert">Status: {availability}</p>}
         <div className="player-sheet-grid">
-          <div><span>Pozycja</span><strong>{player.position || insight?.position || "brak danych"}</strong></div>
+          <div><span>Pozycja</span><strong>{localizePlayerPosition(player.position || insight?.position) || "brak danych"}</strong></div>
           <div><span>Wiek</span><strong>brak danych</strong></div>
           <div><span>Minuty</span><strong>{formatValue(insight?.minutes)}</strong></div>
           <div><span>Starty</span><strong>{player.starts ?? "brak danych"}</strong></div>
@@ -160,8 +163,8 @@ function TacticalTeam({
     <section className="tactical-team">
       <header className="tactical-team-header">
         <div className="tactical-team-title">
-          <TeamLogo src={team.teamLogo} alt={team.teamName} size={48} />
-          <div><h3>{team.teamName}</h3><p>{team.formation || "formacja: brak danych"}</p></div>
+          <TeamLogo src={team.teamLogo} alt={localizeTeamName(team.teamName)} size={48} />
+          <div><h3>{localizeTeamName(team.teamName)}</h3><p>{team.formation || "formacja: brak danych"}</p>{team.sourceNote && <small>{team.sourceNote}</small>}</div>
         </div>
         <span className={`tactical-status tactical-status-${team.status}`}>{team.statusLabel}</span>
       </header>
@@ -174,7 +177,7 @@ function TacticalTeam({
       </div>
 
       {team.players.length === 11 ? (
-        <div className="tactical-pitch" aria-label={`${team.statusLabel}: ${team.teamName}`}>
+        <div className="tactical-pitch" aria-label={`${team.statusLabel}: ${localizeTeamName(team.teamName)}`}>
           {team.players.map((player, index) => {
             const injury = absences.find((item) => item.playerId !== null && item.playerId === player.id);
             const position = pitchPosition(player, team.players);
@@ -189,8 +192,8 @@ function TacticalTeam({
               >
                 <span className="tactical-player-photo"><PersonPhoto src={player.playerPhoto} alt="" size={38} />{player.number !== null && <b>{player.number}</b>}</span>
                 <strong>{player.name}</strong>
-                <small>{player.position || "—"}{player.captain ? " · kapitan" : ""}</small>
-                {player.confidence !== undefined && <em>{player.confidence}%</em>}
+                <small>{localizePlayerPosition(player.position) || "—"}{player.captain ? " · kapitan" : ""}</small>
+                {player.confidence !== undefined && <em>{player.confidence}% · {player.starts}/{player.sampleSize}</em>}
               </button>
             );
           })}
@@ -226,6 +229,7 @@ export function TacticalLineups({ snapshot }: { snapshot: FootballAnalysisSnapsh
           ...official,
           status: "official",
           statusLabel: "Oficjalny skład",
+          sourceNote: "Skład opublikowany przez API-Football",
           players: official.startXI,
           confidence: null,
           reason: null,
@@ -247,6 +251,7 @@ export function TacticalLineups({ snapshot }: { snapshot: FootballAnalysisSnapsh
           coachCountryCode: null,
           status: "predicted",
           statusLabel: "Przewidywany skład",
+          sourceNote: `${formatPolishCount(predicted.sampleSize, "match")} w próbie · średnia pewność ${predicted.confidence}%`,
           players: predicted.players as PredictedLineupPlayer[],
           substitutes: [],
           confidence: predicted.confidence,
@@ -264,6 +269,7 @@ export function TacticalLineups({ snapshot }: { snapshot: FootballAnalysisSnapsh
         coachCountryCode: null,
         status: "unavailable",
         statusLabel: "Brak danych",
+        sourceNote: historical ? `Próba: ${formatPolishCount(historical.sampleSize, "match")}` : null,
         players: [],
         substitutes: [],
         confidence: null,

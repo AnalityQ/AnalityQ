@@ -2,6 +2,9 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { GlobeHemisphereWest } from "@phosphor-icons/react";
+import { countryFlagUrl, countryPresentation } from "@/lib/countries";
+import { normalizeApiAssetUrl } from "@/lib/football-api/assets";
 
 type ImageKind = "team" | "league" | "person";
 
@@ -12,13 +15,7 @@ export function initialsForName(name: string) {
 }
 
 export function isAllowedApiImageUrl(value?: string | null) {
-  if (!value) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && url.hostname === "media.api-sports.io";
-  } catch {
-    return false;
-  }
+  return Boolean(normalizeApiAssetUrl(value));
 }
 
 export function shouldRenderApiImage(value?: string | null, failed = false) {
@@ -55,21 +52,27 @@ export function ApiImage({
   className?: string;
 }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const failed = Boolean(src && failedSrc === src);
-  if (!shouldRenderApiImage(src, failed)) {
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const safeSrc = normalizeApiAssetUrl(src);
+  const failed = Boolean(safeSrc && failedSrc === safeSrc);
+  if (!shouldRenderApiImage(safeSrc, failed)) {
     return <Fallback kind={kind} label={alt} size={size} />;
   }
+  const loading = loadedSrc !== safeSrc;
   return (
-    <span className={`api-image-shell api-image-shell-${kind} ${className}`} style={{ width: size, height: size }}>
+    <span className={`api-image-shell api-image-shell-${kind} ${loading ? "is-loading" : "is-loaded"} ${className}`} style={{ width: size, height: size }}>
+      <span className="api-image-loading" aria-hidden="true" />
       <Image
-        src={src!}
+        src={safeSrc!}
         alt={alt}
         width={size}
         height={size}
         sizes={`${size}px`}
         className={kind === "person" ? "object-cover" : "object-contain"}
-        priority={priority}
-        onError={() => setFailedSrc(src || null)}
+        preload={priority}
+        unoptimized
+        onLoad={() => setLoadedSrc(safeSrc)}
+        onError={() => setFailedSrc(safeSrc)}
       />
     </span>
   );
@@ -98,15 +101,20 @@ export function CountryLabel({
   compact?: boolean;
   flagSrc?: string | null;
 }) {
+  const country = countryPresentation(name, code);
+  const resolvedFlag = normalizeApiAssetUrl(flagSrc) || countryFlagUrl(country.countryName, country.countryCode);
+  const label = country.countryName || "Nieznany kraj";
   return (
     <span className="country-label">
-      {flagSrc ? (
-        <ApiImage src={flagSrc} alt={name || "Flaga kraju"} kind="league" size={18} />
+      {resolvedFlag ? (
+        <ApiImage src={resolvedFlag} alt={`Flaga: ${label}`} kind="league" size={18} />
       ) : (
-        <span className="country-code-fallback" aria-hidden="true">{code?.toUpperCase() || "NN"}</span>
+        <span className="country-globe-fallback" role="img" aria-label="Obszar międzynarodowy">
+          <GlobeHemisphereWest size={14} weight="duotone" aria-hidden="true" />
+        </span>
       )}
-      {!compact && <span>{name || "Nieznany kraj"}</span>}
-      <span className="sr-only">{name || "Nieznany kraj"}</span>
+      {!compact && <span>{label}</span>}
+      {compact && <span className="sr-only">{label}</span>}
     </span>
   );
 }

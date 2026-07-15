@@ -1,4 +1,5 @@
 import { emptyMarketNumbers, safeNumber, statNumberKeys } from "./calculations";
+import { normalizeFootballSnapshotAssets } from "./football-api/assets";
 import type {
   AccessStatus,
   DataLevel,
@@ -208,7 +209,7 @@ export function normalizeAnalysis(analysis: MatchAnalysisRecord, existing: Match
               }
             : undefined,
           snapshot: analysis.dataSource.snapshot?.version === 2
-            ? analysis.dataSource.snapshot
+            ? normalizeFootballSnapshotAssets(analysis.dataSource.snapshot)
             : undefined,
         }
       : null,

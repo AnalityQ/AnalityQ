@@ -8,22 +8,39 @@ const loginRateLimitGlobal = globalThis as typeof globalThis & {
 const loginRateLimit = loginRateLimitGlobal.__analityqStudioLoginRateLimit ?? new Map();
 loginRateLimitGlobal.__analityqStudioLoginRateLimit = loginRateLimit;
 
-export function checkStudioLoginRateLimit(request: Request) {
+function loginRateLimitKey(request: Request) {
   const forwarded = (
     request.headers.get("x-vercel-forwarded-for")
     || request.headers.get("x-forwarded-for")
     || request.headers.get("x-real-ip")
   )?.split(",")[0]?.trim();
-  const key = forwarded || "local";
-  const now = Date.now();
+  return forwarded || "local";
+}
+
+export function isStudioLoginRateLimited(request: Request, now = Date.now()) {
+  const key = loginRateLimitKey(request);
+  const current = loginRateLimit.get(key);
+
+  if (!current) return false;
+  if (current.resetAt <= now) {
+    loginRateLimit.delete(key);
+    return false;
+  }
+  return current.count >= 8;
+}
+
+export function recordStudioLoginFailure(request: Request, now = Date.now()) {
+  const key = loginRateLimitKey(request);
   const current = loginRateLimit.get(key);
 
   if (!current || current.resetAt <= now) {
     loginRateLimit.set(key, { count: 1, resetAt: now + 15 * 60_000 });
-    return true;
+    return;
   }
 
-  if (current.count >= 8) return false;
-  current.count += 1;
-  return true;
+  current.count = Math.min(8, current.count + 1);
+}
+
+export function resetStudioLoginRateLimit(request: Request) {
+  loginRateLimit.delete(loginRateLimitKey(request));
 }

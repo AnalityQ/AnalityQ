@@ -18,7 +18,9 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const fixtureId = positiveInteger(url.searchParams.get("id"));
+  const fixtureId = positiveInteger(
+    url.searchParams.get("id") || url.searchParams.get("fixtureId"),
+  );
   if (!fixtureId) {
     return Response.json(
       { error: { code: "INVALID_FIXTURE", message: "Podaj prawidłowy identyfikator meczu." } },

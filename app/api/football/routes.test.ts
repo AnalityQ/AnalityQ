@@ -50,6 +50,32 @@ describe("endpointy football", () => {
     expect(JSON.stringify(payload)).not.toContain("test-only");
   });
 
+  it("obsługuje parametr fixtureId w lokalnej trasie szczegółów meczu", async () => {
+    vi.stubEnv("FOOTBALL_API_KEY", "test-only");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ response: [{
+      fixture: { id: 1585131, date: "2026-07-14T19:00:00Z", status: { short: "NS", long: "Not Started" }, venue: null },
+      league: { id: 1, name: "World Cup", country: "World", season: 2026, round: "Semi-finals", logo: "https://media.api-sports.io/football/leagues/1.png", flag: null },
+      teams: {
+        home: { id: 2, name: "France", logo: "https://media.api-sports.io/football/teams/2.png" },
+        away: { id: 9, name: "Spain", logo: "https://media.api-sports.io/football/teams/9.png" },
+      },
+      goals: { home: null, away: null },
+    }] }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const { GET } = await import("./fixture/route");
+    const response = await GET(new Request(
+      "http://localhost/api/football/fixture?fixtureId=1585131",
+      { headers: { "x-forwarded-for": "test-fixture-id-alias" } },
+    ));
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload.data).toMatchObject({
+      id: 1585131,
+      leagueLogo: "https://media.api-sports.io/football/leagues/1.png",
+      homeTeam: { logo: "https://media.api-sports.io/football/teams/2.png" },
+      awayTeam: { logo: "https://media.api-sports.io/football/teams/9.png" },
+    });
+  });
+
   it("blokuje wymuszone odświeżenie bez sesji Studio", async () => {
     const { GET } = await import("./fixtures/route");
     const response = await GET(new Request(

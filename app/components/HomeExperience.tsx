@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { calculateFullReportMetrics } from "@/lib/calculations";
 import { faqItems, pricingPlans } from "@/lib/analityq-data";
 import {
+  isNationalTeamName,
+  localizeCompetitionName,
+  localizePublicText,
+  localizeTeamName,
+} from "@/lib/countries";
+import {
   databaseChangeEvent,
   getPublicDatabaseErrorMessage,
   getPublishedAnalyses,
@@ -15,7 +21,10 @@ import type { MatchSignal } from "@/lib/football-api/types";
 import type { MatchAnalysisRecord } from "@/lib/types";
 import { getRiskLabel } from "./Badges";
 import { CountryLabel, LeagueLogo, TeamLogo } from "./ApiImage";
+import { AnimatedNumber } from "./AnimatedNumber";
 import { FAQAccordion } from "./FAQAccordion";
+import { FootballCtaMotion, FootballIcon } from "./FootballIcon";
+import { Logo } from "./Logo";
 import { PricingCard } from "./PricingCard";
 
 const dateFormatter = new Intl.DateTimeFormat("pl-PL", {
@@ -89,6 +98,9 @@ function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
   const kickoff = matchDate(match.basic.kickoff);
   const signalCount = snapshot?.signals.length ?? 0;
   const absenceCount = snapshot?.injuries.missing.length ?? 0;
+  const homeName = localizeTeamName(snapshot?.fixture.homeTeam.name || match.basic.homeTeam) || "Gospodarz";
+  const awayName = localizeTeamName(snapshot?.fixture.awayTeam.name || match.basic.awayTeam) || "Gość";
+  const leagueName = localizeCompetitionName(snapshot?.fixture.leagueName || match.basic.league) || "Rozgrywki";
 
   return (
     <article id="mecz-dnia" className="home-featured-card animate-reveal">
@@ -97,10 +109,11 @@ function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
         <span>{kickoff.date} · {kickoff.time}</span>
       </div>
 
+      <div className="home-featured-pitch" aria-hidden="true" />
       <div className="home-league-line">
-        <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={match.basic.league || "Rozgrywki"} size={34} />
+        <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={leagueName} size={46} />
         <div>
-          <strong>{match.basic.league || "Rozgrywki"}</strong>
+          <strong>{leagueName}</strong>
           {snapshot ? (
             <CountryLabel code={snapshot.fixture.countryCode} name={snapshot.fixture.countryName} flagSrc={snapshot.fixture.leagueFlag} />
           ) : (
@@ -111,13 +124,15 @@ function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
 
       <div className="home-featured-teams">
         <div>
-          <TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={match.basic.homeTeam || "Gospodarz"} size={62} />
-          <strong>{match.basic.homeTeam || "Gospodarz"}</strong>
+          <TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={homeName} size={82} priority />
+          <strong>{homeName}</strong>
+          {isNationalTeamName(snapshot?.fixture.homeTeam.name) && <CountryLabel name={snapshot?.fixture.homeTeam.name} compact />}
         </div>
         <span>VS</span>
         <div>
-          <TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={match.basic.awayTeam || "Gość"} size={62} />
-          <strong>{match.basic.awayTeam || "Gość"}</strong>
+          <TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={awayName} size={82} priority />
+          <strong>{awayName}</strong>
+          {isNationalTeamName(snapshot?.fixture.awayTeam.name) && <CountryLabel name={snapshot?.fixture.awayTeam.name} compact />}
         </div>
       </div>
 
@@ -126,14 +141,14 @@ function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
       </p>
 
       <div className="home-featured-metrics">
-        <div><span>Sygnały</span><strong>{signalCount || "—"}</strong></div>
-        <div><span>Kompletność</span><strong>{metrics.dataCompleteness.percent}%</strong></div>
-        <div><span>Absencje</span><strong>{snapshot ? absenceCount : "—"}</strong></div>
-        <div><span>Składy</span><strong>{lineupStatus(match)}</strong></div>
+        <div><FootballIcon name="signals" /><strong><AnimatedNumber value={snapshot ? signalCount : null} /></strong><span>kluczowych sygnałów</span></div>
+        <div><FootballIcon name="value" /><strong><AnimatedNumber value={metrics.dataCompleteness.percent} suffix="%" /></strong><span>kompletność danych</span></div>
+        <div><FootballIcon name="absences" /><strong><AnimatedNumber value={snapshot ? absenceCount : null} /></strong><span>potwierdzone absencje</span></div>
+        <div className="home-featured-status"><FootballIcon name="lineups" /><strong>{lineupStatus(match)}</strong><span>status składów</span></div>
       </div>
 
       <Link href={`/analizy/${match.slug}`} className="home-featured-link">
-        Otwórz pełny raport
+        <span>Otwórz pełny raport</span><FootballCtaMotion />
       </Link>
     </article>
   );
@@ -159,8 +174,8 @@ function FeaturedSignals({ match }: { match: MatchAnalysisRecord }) {
               <div className="home-signal-index">0{index + 1}</div>
               <div>
                 <p>{signalCategoryLabel(signal)} · {signalStrengthLabel(signal.strength)}</p>
-                <h3>{signal.title}</h3>
-                <span>{signal.evidence}</span>
+                <h3>{localizePublicText(signal.title)}</h3>
+                <span>{localizePublicText(signal.evidence)}</span>
               </div>
               <strong>{signal.confidence}%</strong>
             </article>
@@ -178,22 +193,25 @@ function TodayAnalysisCard({ match }: { match: MatchAnalysisRecord }) {
   const metrics = calculateFullReportMetrics(match);
   const kickoff = matchDate(match.basic.kickoff);
   const strongest = snapshot?.signals[0];
+  const homeName = localizeTeamName(snapshot?.fixture.homeTeam.name || match.basic.homeTeam) || "Gospodarz";
+  const awayName = localizeTeamName(snapshot?.fixture.awayTeam.name || match.basic.awayTeam) || "Gość";
+  const leagueName = localizeCompetitionName(snapshot?.fixture.leagueName || match.basic.league) || "Rozgrywki";
 
   return (
     <article className="home-today-card">
       <div className="home-today-card-head">
         <div className="flex items-center gap-2">
-          <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={match.basic.league || "Rozgrywki"} size={30} />
-          <span>{match.basic.league || "Rozgrywki"}</span>
+          <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={leagueName} size={30} />
+          <span>{leagueName}</span>
         </div>
         <time dateTime={match.basic.kickoff}>{kickoff.time}</time>
       </div>
       <div className="home-today-teams">
-        <div><TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={match.basic.homeTeam || "Gospodarz"} size={36} /><strong>{match.basic.homeTeam || "Gospodarz"}</strong></div>
+        <div><TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={homeName} size={42} /><strong>{homeName}</strong></div>
         <span>–</span>
-        <div><TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={match.basic.awayTeam || "Gość"} size={36} /><strong>{match.basic.awayTeam || "Gość"}</strong></div>
+        <div><TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={awayName} size={42} /><strong>{awayName}</strong></div>
       </div>
-      <p className="home-today-signal">{strongest ? strongest.title : "Sygnały pojawią się po uzupełnieniu danych."}</p>
+      <p className="home-today-signal">{strongest ? localizePublicText(strongest.title) : "Sygnały pojawią się po uzupełnieniu danych."}</p>
       <div className="home-today-meta">
         <span>Ryzyko: <strong>{getRiskLabel(metrics.effectiveRiskLevel)}</strong></span>
         <span>Dane: <strong>{metrics.dataCompleteness.percent}%</strong></span>
@@ -270,7 +288,8 @@ export function HomeExperience() {
         <div className="home-hero-scan" aria-hidden="true" />
         <div className="section-shell home-hero-grid">
           <div className="home-hero-copy animate-fade-up">
-            <p className="eyebrow">AnalityQ 2.0 · Raporty meczowe</p>
+            <Logo href="" className="home-hero-brand" />
+            <p className="eyebrow">AnalityQ · Raporty meczowe</p>
             <h1>Zobacz mecz głębiej niż wynik i kurs.</h1>
             <p>Forma, dom i wyjazd, składy, absencje, strzały, rożne, kartki i najważniejsze sygnały w jednym raporcie.</p>
             <div className="home-hero-actions">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
+import { PremiumModeController } from "./components/PremiumModeController";
 import { StudioShortcutModal } from "./components/StudioShortcutModal";
 import "./globals.css";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "AnalityQ | Zobacz mecz głębiej",
     description: "Czytelne raporty meczowe oparte na danych i kontekście.",
-    images: [{ url: "/analityq-og-background.png", width: 1200, height: 630 }],
+    images: [{ url: "/analityq-og.png", width: 1200, height: 630, alt: "AnalityQ — football intelligence" }],
     locale: "pl_PL",
     type: "website",
   },
@@ -30,6 +31,7 @@ export default function RootLayout({
         <main className="flex-1 overflow-hidden">{children}</main>
         <Footer />
         <StudioShortcutModal />
+        <PremiumModeController />
       </body>
     </html>
   );

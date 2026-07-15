@@ -148,4 +148,4 @@ export function predictTeamLineup(
 }
 
 export const predictedLineupRule =
-  "Pewność = 25% + 50% × udział startów + 15% × udział występów + 10% × średni udział minut w pełnym meczu; zawodnik wątpliwy otrzymuje karę 20 p.p. Wynik jest ograniczony do 20–96%. Wymagamy minimum 3 historycznych składów, najczęstszej formacji i 11 dostępnych zawodników.";
+  "Najpierw pokazujemy skład oficjalny z API-Football. Gdy nie jest jeszcze dostępny, przewidywanie opiera się na minimum 3 historycznych składach, najczęstszej formacji, liczbie startów, występów i minutach. Pewność = 25% + 50% × udział startów + 15% × udział występów + 10% × średni udział minut w pełnym meczu; zawodnik wątpliwy otrzymuje karę 20 p.p. Wynik jest ograniczony do 20–96%.";

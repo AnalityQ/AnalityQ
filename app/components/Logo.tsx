@@ -1,28 +1,38 @@
+import Image from "next/image";
 import Link from "next/link";
 
 type LogoProps = {
   className?: string;
   href?: string;
+  compact?: boolean;
 };
 
-function LogoContent() {
+function LogoContent({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-3">
+    <span className={`brand-lockup ${compact ? "brand-lockup-compact" : ""}`}>
       <span className="logo-mark" aria-hidden="true">
-        Q
+        <Image
+          src="/branding/analityq-mark-compact-clean.png"
+          alt=""
+          width={52}
+          height={52}
+          sizes="52px"
+          className="brand-mark-image"
+          unoptimized
+        />
       </span>
-      <span className="text-[1.08rem] font-black text-white md:text-[1.2rem]">
+      {!compact && <span className="brand-wordmark">
         Anality<span className="logo-q">Q</span>
-      </span>
+      </span>}
     </span>
   );
 }
 
-export function Logo({ className = "", href = "/" }: LogoProps) {
+export function Logo({ className = "", href = "/", compact = false }: LogoProps) {
   if (!href) {
     return (
       <span className={`inline-flex items-center ${className}`}>
-        <LogoContent />
+        <LogoContent compact={compact} />
       </span>
     );
   }
@@ -31,9 +41,9 @@ export function Logo({ className = "", href = "/" }: LogoProps) {
     <Link
       href={href}
       className={`inline-flex items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 ${className}`}
-      aria-label="AnalityQ - strona główna"
+      aria-label="AnalityQ — strona główna"
     >
-      <LogoContent />
+      <LogoContent compact={compact} />
     </Link>
   );
 }

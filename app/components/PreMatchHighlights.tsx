@@ -1,4 +1,5 @@
 import type { FootballAnalysisSnapshot } from "@/lib/football-api/types";
+import { localizePublicText, localizeTeamName } from "@/lib/countries";
 
 function lineupStatus(snapshot: FootballAnalysisSnapshot) {
   if (snapshot.lineups.official && snapshot.lineups.teams.every((team) => team.startXI.length >= 11)) {
@@ -18,15 +19,17 @@ export function PreMatchHighlights({ snapshot }: { snapshot: FootballAnalysisSna
   const risks = snapshot.risks.slice(0, 2);
   const homeVenue = snapshot.venueSplits.homeTeamAtHome.summary;
   const awayVenue = snapshot.venueSplits.awayTeamAway.summary;
+  const homeName = localizeTeamName(snapshot.fixture.homeTeam.name);
+  const awayName = localizeTeamName(snapshot.fixture.awayTeam.name);
   const advantage = homeVenue.sampleSize > 0 && awayVenue.sampleSize > 0
     ? homeVenue.points === awayVenue.points
       ? "W próbkach dom/wyjazd obie drużyny zdobyły tyle samo punktów."
       : homeVenue.points > awayVenue.points
-        ? `${snapshot.fixture.homeTeam.name} ma przewagę w punktach zdobytych u siebie względem wyjazdowej próbki rywala.`
-        : `${snapshot.fixture.awayTeam.name} ma lepszy dorobek w wyjazdowej próbce niż gospodarz u siebie.`
+        ? `${homeName} ma przewagę w punktach zdobytych u siebie względem wyjazdowej próbki rywala.`
+        : `${awayName} ma lepszy dorobek w wyjazdowej próbce niż gospodarz u siebie.`
     : "Brak wspólnej próby dom/wyjazd.";
   const table = snapshot.standings?.home && snapshot.standings.away
-    ? `${snapshot.standings.home.teamName}: ${snapshot.standings.home.rank}. miejsce · ${snapshot.standings.away.teamName}: ${snapshot.standings.away.rank}. miejsce · różnica punktów: ${snapshot.standings.pointsDifference === null ? "brak danych" : Math.abs(snapshot.standings.pointsDifference)}.`
+    ? `${localizeTeamName(snapshot.standings.home.teamName)}: ${snapshot.standings.home.rank}. miejsce · ${localizeTeamName(snapshot.standings.away.teamName)}: ${snapshot.standings.away.rank}. miejsce · różnica punktów: ${snapshot.standings.pointsDifference === null ? "brak danych" : Math.abs(snapshot.standings.pointsDifference)}.`
     : "Brak tabeli obejmującej obie drużyny.";
   const keyAbsence = snapshot.injuries.missing[0];
   const profile = signals.length
@@ -42,17 +45,17 @@ export function PreMatchHighlights({ snapshot }: { snapshot: FootballAnalysisSna
       <div className="prematch-grid">
         <article className="prematch-card prematch-card-wide">
           <span>3 najmocniejsze sygnały</span>
-          {signals.length ? <ol>{signals.map((signal) => <li key={signal.id}><strong>{signal.title}</strong><p>{signal.evidence}</p></li>)}</ol> : <p>Brak wystarczających danych do wskazania sygnałów.</p>}
+          {signals.length ? <ol>{signals.map((signal) => <li key={signal.id}><strong>{localizePublicText(signal.title)}</strong><p>{localizePublicText(signal.evidence)}</p></li>)}</ol> : <p>Brak wystarczających danych do wskazania sygnałów.</p>}
         </article>
         <article className="prematch-card">
           <span>Największe ryzyka</span>
-          {risks.length ? <ul>{risks.map((risk) => <li key={risk.id}>{risk.title}</li>)}</ul> : <p>Nie wykryto konkretnego ryzyka liczbowego; nie oznacza to braku niepewności.</p>}
+          {risks.length ? <ul>{risks.map((risk) => <li key={risk.id}>{localizePublicText(risk.title)}</li>)}</ul> : <p>Nie wykryto konkretnego ryzyka liczbowego; nie oznacza to braku niepewności.</p>}
         </article>
         <article className="prematch-card"><span>Dom / wyjazd</span><p>{advantage}</p></article>
         <article className="prematch-card"><span>Tabela</span><p>{table}</p></article>
-        <article className="prematch-card"><span>Kluczowa absencja</span><p>{keyAbsence ? `${keyAbsence.playerName} · ${keyAbsence.teamName}${keyAbsence.reason ? ` · ${keyAbsence.reason}` : ""}` : "Brak potwierdzonej kluczowej absencji w dostępnych danych."}</p></article>
+        <article className="prematch-card"><span>Kluczowa absencja</span><p>{keyAbsence ? `${keyAbsence.playerName} · ${localizeTeamName(keyAbsence.teamName)}${keyAbsence.reason ? ` · ${keyAbsence.reason}` : ""}` : "Brak potwierdzonej kluczowej absencji w dostępnych danych."}</p></article>
         <article className="prematch-card"><span>Status składów</span><p>{lineupStatus(snapshot)}</p></article>
-        <article className="prematch-card prematch-card-wide"><span>Profil spotkania</span><p>{profile}</p></article>
+        <article className="prematch-card prematch-card-wide"><span>Profil spotkania</span><p>{localizePublicText(profile)}</p></article>
       </div>
     </section>
   );

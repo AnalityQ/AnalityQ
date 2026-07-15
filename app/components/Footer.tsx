@@ -16,7 +16,7 @@ export function Footer() {
             <p className="mt-5 max-w-3xl rounded-xl border border-cyan-200/15 bg-cyan-200/[0.04] p-4 text-xs leading-6 text-slate-400">
               {disclaimer}
             </p>
-            <p className="mt-4 text-xs font-semibold text-amber-200">AnalityQ 2.0</p>
+            <p className="mt-4 text-xs font-semibold text-amber-200">AnalityQ</p>
           </div>
 
           <nav className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3" aria-label="Linki w stopce">
