@@ -1,6 +1,15 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { createPortal } from "react-dom";
 import { selectImportMatches } from "@/lib/football-api/apply-import";
 import {
   filterFixtureSummaries,
@@ -18,6 +27,10 @@ import { LeagueLogo, TeamLogo } from "../ApiImage";
 
 const fixturesPageSize = 24;
 const requestTimeoutMs = 25_000;
+const importTimeoutMs = 75_000;
+const subscribeClientReady = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const importSteps = [
   "Łączenie ze źródłem danych…",
@@ -175,6 +188,11 @@ function CoverageSummary({ title, aggregate }: { title: string; aggregate: Aggre
 }
 
 export function MatchImportModal({ onClose, onApply }: { onClose: () => void; onApply: (data: FootballMatchImport) => void }) {
+  const portalReady = useSyncExternalStore(
+    subscribeClientReady,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const [date, setDate] = useState(today);
   const [query, setQuery] = useState("");
   const [fixtures, setFixtures] = useState<FootballFixtureSummary[]>([]);
@@ -188,23 +206,43 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
   const [awaySelected, setAwaySelected] = useState<number[]>([]);
   const [refreshPrompt, setRefreshPrompt] = useState(false);
   const fixturesRequestRef = useRef<AbortController | null>(null);
+  const importRequestRef = useRef<AbortController | null>(null);
+  const initialFixturesRequestRef = useRef(false);
+  const onCloseRef = useRef(onClose);
   const deferredQuery = useDeferredValue(query);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const cancelRequests = useCallback(() => {
+    const fixturesRequest = fixturesRequestRef.current;
+    const importRequest = importRequestRef.current;
+    fixturesRequestRef.current = null;
+    importRequestRef.current = null;
+    fixturesRequest?.abort();
+    importRequest?.abort();
+    setFixturesLoading(false);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    cancelRequests();
+    onCloseRef.current();
+  }, [cancelRequests]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeModal();
     };
     window.addEventListener("keydown", handleKey);
     return () => {
-      const activeRequest = fixturesRequestRef.current;
-      fixturesRequestRef.current = null;
-      activeRequest?.abort();
+      cancelRequests();
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKey);
     };
-  }, [onClose]);
+  }, [cancelRequests, closeModal]);
 
   const filteredFixtures = useMemo(
     () => filterFixtureSummaries(fixtures, deferredQuery),
@@ -218,7 +256,7 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
 
   const selectedImport = useMemo(() => imported ? selectImportMatches(imported, homeSelected, awaySelected) : null, [awaySelected, homeSelected, imported]);
 
-  async function loadFixtures(refresh = false) {
+  const loadFixtures = useCallback(async (refresh = false) => {
     fixturesRequestRef.current?.abort();
     const controller = new AbortController();
     fixturesRequestRef.current = controller;
@@ -252,31 +290,77 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
         setFixturesLoading(false);
       }
     }
-  }
+  }, [date]);
+
+  useEffect(() => {
+    if (!portalReady || initialFixturesRequestRef.current) return;
+    initialFixturesRequestRef.current = true;
+    void loadFixtures();
+  }, [loadFixtures, portalReady]);
 
   async function loadImport(fixtureId: number, refresh = false) {
+    importRequestRef.current?.abort();
+    const controller = new AbortController();
+    importRequestRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), importTimeoutMs);
     setError(""); setImportStep(0); setRefreshPrompt(false);
     const interval = window.setInterval(() => setImportStep((step) => Math.min(step + 1, importSteps.length - 2)), 1300);
     try {
-      const response = await fetch("/api/football/match-import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixtureId, refresh }) });
+      const response = await fetch("/api/football/match-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fixtureId, refresh }),
+        signal: controller.signal,
+      });
       const data = await readResponse<FootballMatchImport>(response);
       setImported(data); setHomeSelected(data.home.matches.map((match) => match.fixtureId)); setAwaySelected(data.away.matches.map((match) => match.fixtureId)); setImportStep(importSteps.length - 1);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Nie udało się pobrać danych meczu."); setImportStep(-1);
-    } finally { window.clearInterval(interval); }
+      if (controller.signal.aborted && importRequestRef.current !== controller) return;
+      setError(
+        loadError instanceof Error && loadError.name === "AbortError"
+          ? "Pobieranie danych meczu zostało anulowane albo przekroczyło limit czasu. Możesz spróbować ponownie."
+          : loadError instanceof Error
+            ? loadError.message
+            : "Nie udało się pobrać danych meczu.",
+      );
+      setImportStep(-1);
+    } finally {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+      if (importRequestRef.current === controller) importRequestRef.current = null;
+    }
+  }
+
+  function cancelImport() {
+    const activeRequest = importRequestRef.current;
+    importRequestRef.current = null;
+    activeRequest?.abort();
+    setImportStep(-1);
+    setError("Pobieranie danych meczu zostało anulowane. Możesz wybrać mecz ponownie.");
   }
 
   function toggle(list: number[], setList: (value: number[]) => void, id: number) {
     setList(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
   }
 
-  return (
-    <div className="match-import-backdrop" role="dialog" aria-modal="true" aria-label="Pobierz dane meczu">
-      <div className="match-import-modal">
-        <header className="match-import-header"><Logo href="" /><div><p className="eyebrow">Import danych</p><h2 className="text-xl font-black text-white">{imported ? "Sprawdź pobrane dane" : "Pobierz dane meczu"}</h2></div><button type="button" onClick={onClose}>Zamknij</button></header>
+  if (!portalReady) return null;
+
+  return createPortal(
+    <div
+      className="match-import-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pobierz dane meczu"
+      aria-busy={fixturesLoading || (importStep >= 0 && importStep < importSteps.length - 1)}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closeModal();
+      }}
+    >
+      <div className="match-import-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="match-import-header"><Logo href="" /><div><p className="eyebrow">Import danych</p><h2 className="text-xl font-black text-white">{imported ? "Sprawdź pobrane dane" : "Pobierz dane meczu"}</h2></div><button type="button" onClick={closeModal}>Zamknij</button></header>
         <div className="match-import-scroll">
           {importStep >= 0 && importStep < importSteps.length - 1 ? (
-            <div className="api-progress-panel" aria-live="polite"><div className="api-radar" aria-hidden="true"><span /></div><div className="mt-5 grid gap-3">{importSteps.map((step, index) => <div key={step} className={`api-progress-step ${index <= importStep ? "active" : ""}`}><span>{index < importStep ? "OK" : index + 1}</span><p>{step}</p></div>)}</div><p className="mt-5 text-xs leading-6 text-slate-500">Etapy pokazują aktualną fazę importu. Czas zależy od dostępności danych dostawcy.</p></div>
+            <div className="api-progress-panel" aria-live="polite"><div className="api-radar" aria-hidden="true"><span /></div><div className="mt-5 grid gap-3">{importSteps.map((step, index) => <div key={step} className={`api-progress-step ${index <= importStep ? "active" : ""}`}><span>{index < importStep ? "OK" : index + 1}</span><p>{step}</p></div>)}</div><p className="mt-5 text-xs leading-6 text-slate-500">Etapy pokazują aktualną fazę importu. Czas zależy od dostępności danych dostawcy.</p><button type="button" className="btn-secondary mt-5" onClick={cancelImport}>Anuluj pobieranie</button></div>
           ) : imported && selectedImport ? (
             <div className="space-y-5">
               <section className="api-review-section"><p className="eyebrow">Dane meczu</p><div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><div className="flex flex-wrap items-center gap-3"><TeamLogo src={imported.fixture.homeTeam.logo} alt={imported.fixture.homeTeam.name} size={48} /><h3 className="text-2xl font-black text-white">{imported.fixture.homeTeam.name} vs {imported.fixture.awayTeam.name}</h3><TeamLogo src={imported.fixture.awayTeam.logo} alt={imported.fixture.awayTeam.name} size={48} /></div><p className="mt-2 text-sm text-slate-400">{imported.fixture.leagueName} · {formatDate(imported.fixture.kickoff)} {formatTime(imported.fixture.kickoff)} · {imported.fixture.venue || "stadion nie został podany przez API-Football"}</p></div><button type="button" className="btn-secondary" onClick={() => setRefreshPrompt(true)}>Odśwież dane</button></div></section>
@@ -302,8 +386,9 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
           )}
           {error && <div className="studio-error api-fixture-error" role="alert"><span>{error}</span>{!imported && <button type="button" className="btn-secondary" disabled={fixturesLoading} onClick={() => void loadFixtures()}>Spróbuj ponownie</button>}</div>}
         </div>
-        <footer className="match-import-footer"><button type="button" className="btn-secondary" onClick={onClose}>Anuluj</button>{selectedImport && <button type="button" className="btn-primary" onClick={() => onApply(selectedImport)}>Uzupełnij formularz</button>}</footer>
+        <footer className="match-import-footer"><button type="button" className="btn-secondary" onClick={closeModal}>Anuluj</button>{selectedImport && <button type="button" className="btn-primary" onClick={() => onApply(selectedImport)}>Uzupełnij formularz</button>}</footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1144,8 +1144,8 @@ summary {
 .field-source-mixed { color: rgb(253 230 138); }
 .field-source-missing { color: rgb(148 163 184); }
 
-.match-import-backdrop { position: fixed; inset: 0; z-index: 125; display: grid; place-items: center; padding: 18px; background: rgba(1,5,15,.82); backdrop-filter: blur(13px); }
-.match-import-modal { display: grid; grid-template-rows: auto minmax(0,1fr) auto; width: min(94vw, 1480px); height: min(94dvh, 980px); overflow: hidden; border: 1px solid rgba(142,234,255,.22); border-radius: 28px; background: radial-gradient(circle at 85% 0%, rgba(142,234,255,.1), transparent 30rem), #061023; box-shadow: 0 30px 100px rgba(0,0,0,.5); }
+.match-import-backdrop { position: fixed; inset: 0; z-index: 125; display: grid; place-items: center; overscroll-behavior: none; padding: 18px; background: rgba(1,5,15,.96); contain: layout paint; }
+.match-import-modal { position: relative; isolation: isolate; display: grid; grid-template-rows: auto minmax(0,1fr) auto; width: min(94vw, 1480px); height: min(94dvh, 980px); overflow: hidden; border: 1px solid rgba(142,234,255,.22); border-radius: 28px; background: radial-gradient(circle at 85% 0%, rgba(142,234,255,.1), transparent 30rem), #061023; box-shadow: 0 30px 100px rgba(0,0,0,.5); }
 .match-import-header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; border-bottom: 1px solid rgba(255,255,255,.1); padding: 16px 20px; background: rgba(3,10,24,.86); }
 .match-import-header > button { display: grid; min-height: 42px; place-items: center; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; background: rgba(255,255,255,.05); padding: 8px 13px; color: white; font-size: .72rem; font-weight: 900; }
 .match-import-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 22px; }
