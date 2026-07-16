@@ -31,6 +31,7 @@ import {
   type SectionCoverage,
   type SectionStatus,
 } from "./types";
+import { resolveVenueContext } from "./venue-context";
 
 const concurrencyLimit = 4;
 
@@ -319,6 +320,8 @@ export async function buildFootballMatchImport(
       ? null
       : ((optional.values.odds as ApiFootballOdds[] | undefined) || []),
   );
+  const venueContext = resolveVenueContext(buildMatchFixtureData(fixture));
+  const neutralVenue = venueContext.mode === "neutral";
   const signals = generateMatchSignals({
     homeName: fixture.teams.home.name,
     awayName: fixture.teams.away.name,
@@ -329,6 +332,7 @@ export async function buildFootballMatchImport(
     standings,
     h2h,
     injuries,
+    neutralVenue,
   });
   const risks = generateMatchRisks({
     homeName: fixture.teams.home.name,
@@ -339,16 +343,18 @@ export async function buildFootballMatchImport(
     awayVenue,
     injuries,
     lineups,
+    neutralVenue,
   });
   const automaticSummary = generateAutomaticSummary({
     homeName: fixture.teams.home.name,
     awayName: fixture.teams.away.name,
     standings,
-    homeVenue,
-    awayVenue,
+    homeVenue: neutralVenue ? homeRecent : homeVenue,
+    awayVenue: neutralVenue ? awayRecent : awayVenue,
     signals,
     risks,
     injuries,
+    neutralVenue,
   });
   const standingsStatus = standings.available
     ? "complete"
@@ -407,9 +413,10 @@ export async function buildFootballMatchImport(
     ...aggregateWarnings(homeAggregate, `drużyny ${fixture.teams.home.name}`),
     ...aggregateWarnings(awayAggregate, `drużyny ${fixture.teams.away.name}`),
   );
-  if (homeVenue.summary.sampleSize < 3 || awayVenue.summary.sampleSize < 3) {
+  if (!neutralVenue && (homeVenue.summary.sampleSize < 3 || awayVenue.summary.sampleSize < 3)) {
     warnings.push("Co najmniej jeden podział dom/wyjazd obejmuje mniej niż 3 spotkania.");
   }
+  if (neutralVenue) warnings.push(`${venueContext.label}: ${venueContext.reason}`);
   if (!lineups.official) warnings.push(lineups.reason || "Oficjalne składy nie są jeszcze dostępne.");
   if (injuries.reason) warnings.push(injuries.reason);
   const cache = getCacheStatus();

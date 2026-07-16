@@ -162,6 +162,18 @@ export async function apiFootballRequest<T>(
     if (error instanceof Error && error.name === "AbortError") {
       throw new FootballApiError("TIMEOUT", "Przekroczono czas oczekiwania na dane piłkarskie.", 504);
     }
+    const cause = error instanceof Error && error.cause && typeof error.cause === "object"
+      ? error.cause as { code?: unknown; message?: unknown }
+      : null;
+    console.error("[API-Football] Request connection failed", {
+      endpoint,
+      params: safeLogParams(params, apiKey),
+      error: error instanceof Error ? error.message : String(error),
+      causeCode: typeof cause?.code === "string" ? cause.code : undefined,
+      causeMessage: typeof cause?.message === "string"
+        ? redactApiKey(cause.message, apiKey).slice(0, 240)
+        : undefined,
+    });
     throw new FootballApiError("PROVIDER_ERROR", "Nie udało się połączyć z dostawcą danych.", 502);
   } finally {
     clearTimeout(timeout);

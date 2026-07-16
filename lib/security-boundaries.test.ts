@@ -17,11 +17,11 @@ const applicationSourceFiles = [...sourceFiles("app"), ...sourceFiles("lib")];
 
 describe("granice bezpieczeństwa", () => {
   it("publiczny odczyt oraz RLS dopuszczają wyłącznie published", () => {
-    const database = read("lib/database.ts");
+    const publicRepository = read("lib/server/public-analysis-repository.ts");
     const migration = read("supabase/migrations/20260712103027_secure_analysis_rls.sql");
     const schema = read("supabase/schema.sql");
 
-    expect(database).toContain('.eq("publication_status", "published")');
+    expect(publicRepository).toContain('.eq("publication_status", "published")');
     for (const sql of [migration, schema]) {
       expect(sql).toContain("grant select on table public.analyses to anon");
       expect(sql).toContain("using (publication_status = 'published')");

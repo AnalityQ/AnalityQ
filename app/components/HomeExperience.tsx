@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { calculateFullReportMetrics } from "@/lib/calculations";
 import { faqItems, pricingPlans } from "@/lib/analityq-data";
 import {
   isNationalTeamName,
@@ -16,9 +15,8 @@ import {
   getPublishedAnalyses,
 } from "@/lib/database";
 import { selectFeaturedAnalysis } from "@/lib/featured-analysis";
-import { predictTeamLineup } from "@/lib/football-api/predicted-lineup";
 import type { MatchSignal } from "@/lib/football-api/types";
-import type { MatchAnalysisRecord } from "@/lib/types";
+import type { PublicAnalysisSummary } from "@/lib/public-analysis";
 import { getRiskLabel } from "./Badges";
 import { CountryLabel, LeagueLogo, TeamLogo } from "./ApiImage";
 import { AnimatedNumber } from "./AnimatedNumber";
@@ -52,23 +50,6 @@ function isToday(value: string, now: Date) {
     && date.getDate() === now.getDate();
 }
 
-function lineupStatus(match: MatchAnalysisRecord) {
-  const snapshot = match.dataSource?.snapshot;
-  const lineups = snapshot?.lineups;
-  if (lineups?.official && lineups.teams.some((team) => team.startXI.length > 0)) {
-    return "Oficjalne";
-  }
-  if (snapshot && lineups?.historicalStarters.length === 2 && lineups.historicalStarters.every((team) =>
-    predictTeamLineup(team, snapshot.injuries, snapshot.playerInsights).available,
-  )) {
-    return "Przewidywane";
-  }
-  if (lineups?.historicalStarters.some((team) => team.players.length >= 9)) {
-    return "Najczęściej wybierani";
-  }
-  return "Brak wystarczających danych";
-}
-
 function signalStrengthLabel(strength: MatchSignal["strength"]) {
   if (strength === "strong") return "Silny sygnał";
   if (strength === "medium") return "Umiarkowany sygnał";
@@ -92,15 +73,23 @@ function signalCategoryLabel(signal: MatchSignal) {
   return labels[signal.category];
 }
 
-function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
-  const snapshot = match.dataSource?.snapshot;
-  const metrics = calculateFullReportMetrics(match);
+function compactNumber(value: number | null | undefined, digits = 1) {
+  return typeof value !== "number" ? "—" : value.toFixed(digits).replace(".", ",");
+}
+
+function MatchOfTheDay({ match }: { match: PublicAnalysisSummary }) {
   const kickoff = matchDate(match.basic.kickoff);
-  const signalCount = snapshot?.signals.length ?? 0;
-  const absenceCount = snapshot?.injuries.missing.length ?? 0;
-  const homeName = localizeTeamName(snapshot?.fixture.homeTeam.name || match.basic.homeTeam) || "Gospodarz";
-  const awayName = localizeTeamName(snapshot?.fixture.awayTeam.name || match.basic.awayTeam) || "Gość";
-  const leagueName = localizeCompetitionName(snapshot?.fixture.leagueName || match.basic.league) || "Rozgrywki";
+  const homeName = localizeTeamName(match.homeTeam.name) || "Gospodarz";
+  const awayName = localizeTeamName(match.awayTeam.name) || "Gość";
+  const leagueName = localizeCompetitionName(match.league.name) || "Rozgrywki";
+  const favorite = match.metrics.favorite;
+  const favoriteName = favorite?.side === "home"
+    ? homeName
+    : favorite?.side === "away"
+      ? awayName
+      : favorite?.side === "draw"
+        ? "Remis"
+        : "Brak danych";
 
   return (
     <article id="mecz-dnia" className="home-featured-card animate-reveal">
@@ -111,40 +100,40 @@ function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
 
       <div className="home-featured-pitch" aria-hidden="true" />
       <div className="home-league-line">
-        <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={leagueName} size={46} />
+        <LeagueLogo src={match.league.logo} alt={leagueName} size={46} />
         <div>
           <strong>{leagueName}</strong>
-          {snapshot ? (
-            <CountryLabel code={snapshot.fixture.countryCode} name={snapshot.fixture.countryName} flagSrc={snapshot.fixture.leagueFlag} />
-          ) : (
-            <small>{match.basic.country || "Kraj: brak danych"}</small>
-          )}
+          <CountryLabel code={match.league.countryCode} name={match.league.country} flagSrc={match.league.flag} />
         </div>
       </div>
 
       <div className="home-featured-teams">
         <div>
-          <TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={homeName} size={82} priority />
-          <strong>{homeName}</strong>
-          {isNationalTeamName(snapshot?.fixture.homeTeam.name) && <CountryLabel name={snapshot?.fixture.homeTeam.name} compact />}
+          <TeamLogo src={match.homeTeam.logo} alt={homeName} size={82} priority />
+          <strong title={homeName}>{homeName}</strong>
+          {isNationalTeamName(match.homeTeam.name) && <CountryLabel name={match.homeTeam.name} compact />}
         </div>
         <span>VS</span>
         <div>
-          <TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={awayName} size={82} priority />
-          <strong>{awayName}</strong>
-          {isNationalTeamName(snapshot?.fixture.awayTeam.name) && <CountryLabel name={snapshot?.fixture.awayTeam.name} compact />}
+          <TeamLogo src={match.awayTeam.logo} alt={awayName} size={82} priority />
+          <strong title={awayName}>{awayName}</strong>
+          {isNationalTeamName(match.awayTeam.name) && <CountryLabel name={match.awayTeam.name} compact />}
         </div>
       </div>
 
       <p className="home-featured-venue">
-        {snapshot?.fixture.venueName || match.basic.venue || "Stadion: brak danych"}
+        {match.venueName || "Stadion: brak danych"}
+      </p>
+
+      <p className={`home-venue-context home-venue-${match.venueContext.mode}`}>
+        {match.venueContext.label} · {match.venueContext.reason}
       </p>
 
       <div className="home-featured-metrics">
-        <div><FootballIcon name="signals" /><strong><AnimatedNumber value={snapshot ? signalCount : null} /></strong><span>kluczowych sygnałów</span></div>
-        <div><FootballIcon name="value" /><strong><AnimatedNumber value={metrics.dataCompleteness.percent} suffix="%" /></strong><span>kompletność danych</span></div>
-        <div><FootballIcon name="absences" /><strong><AnimatedNumber value={snapshot ? absenceCount : null} /></strong><span>potwierdzone absencje</span></div>
-        <div className="home-featured-status"><FootballIcon name="lineups" /><strong>{lineupStatus(match)}</strong><span>status składów</span></div>
+        <div><FootballIcon name="goals" /><strong>{compactNumber(match.metrics.totalExpectedGoals, 2)}</strong><span>przewidywane gole</span></div>
+        <div><FootballIcon name="corners" /><strong>{compactNumber(match.metrics.expectedCorners)}</strong><span>przewidywane rożne łącznie</span></div>
+        <div><FootballIcon name="standings" /><strong>{favorite ? <AnimatedNumber value={favorite.probability} suffix="%" /> : "—"}</strong><span title={favoriteName}>faworyt · {favoriteName}</span></div>
+        <div><FootballIcon name="value" /><strong><AnimatedNumber value={match.metrics.valueIndex} /></strong><span>Value Index</span></div>
       </div>
 
       <Link href={`/analizy/${match.slug}`} className="home-featured-link">
@@ -154,8 +143,8 @@ function MatchOfTheDay({ match }: { match: MatchAnalysisRecord }) {
   );
 }
 
-function FeaturedSignals({ match }: { match: MatchAnalysisRecord }) {
-  const signals = match.dataSource?.snapshot?.signals.slice(0, 3) ?? [];
+function FeaturedSignals({ match }: { match: PublicAnalysisSummary }) {
+  const signals = match.signals;
 
   return (
     <section className="home-section home-signals-section" aria-labelledby="sygnaly-title">
@@ -188,44 +177,38 @@ function FeaturedSignals({ match }: { match: MatchAnalysisRecord }) {
   );
 }
 
-function TodayAnalysisCard({ match }: { match: MatchAnalysisRecord }) {
-  const snapshot = match.dataSource?.snapshot;
-  const metrics = calculateFullReportMetrics(match);
+function TodayAnalysisCard({ match }: { match: PublicAnalysisSummary }) {
   const kickoff = matchDate(match.basic.kickoff);
-  const strongest = snapshot?.signals[0];
-  const homeName = localizeTeamName(snapshot?.fixture.homeTeam.name || match.basic.homeTeam) || "Gospodarz";
-  const awayName = localizeTeamName(snapshot?.fixture.awayTeam.name || match.basic.awayTeam) || "Gość";
-  const leagueName = localizeCompetitionName(snapshot?.fixture.leagueName || match.basic.league) || "Rozgrywki";
+  const strongest = match.signals[0];
+  const homeName = localizeTeamName(match.homeTeam.name) || "Gospodarz";
+  const awayName = localizeTeamName(match.awayTeam.name) || "Gość";
+  const leagueName = localizeCompetitionName(match.league.name) || "Rozgrywki";
 
   return (
     <article className="home-today-card">
       <div className="home-today-card-head">
         <div className="flex items-center gap-2">
-          <LeagueLogo src={snapshot?.fixture.leagueLogo} alt={leagueName} size={30} />
+          <LeagueLogo src={match.league.logo} alt={leagueName} size={30} />
           <span>{leagueName}</span>
         </div>
         <time dateTime={match.basic.kickoff}>{kickoff.time}</time>
       </div>
       <div className="home-today-teams">
-        <div><TeamLogo src={snapshot?.fixture.homeTeam.logo} alt={homeName} size={42} /><strong>{homeName}</strong></div>
+        <div><TeamLogo src={match.homeTeam.logo} alt={homeName} size={42} /><strong title={homeName}>{homeName}</strong></div>
         <span>–</span>
-        <div><TeamLogo src={snapshot?.fixture.awayTeam.logo} alt={awayName} size={42} /><strong>{awayName}</strong></div>
+        <div><TeamLogo src={match.awayTeam.logo} alt={awayName} size={42} /><strong title={awayName}>{awayName}</strong></div>
       </div>
       <p className="home-today-signal">{strongest ? localizePublicText(strongest.title) : "Sygnały pojawią się po uzupełnieniu danych."}</p>
       <div className="home-today-meta">
-        <span>Ryzyko: <strong>{getRiskLabel(metrics.effectiveRiskLevel)}</strong></span>
-        <span>Dane: <strong>{metrics.dataCompleteness.percent}%</strong></span>
+        <span>Ryzyko: <strong>{getRiskLabel(match.metrics.effectiveRiskLevel)}</strong></span>
+        <span>Dane: <strong>{match.metrics.completeness}%</strong></span>
       </div>
       <Link href={`/analizy/${match.slug}`}>Zobacz analizę</Link>
     </article>
   );
 }
 
-function LineupTeaser({ match }: { match: MatchAnalysisRecord }) {
-  const snapshot = match.dataSource?.snapshot;
-  const missing = snapshot?.injuries.missing ?? [];
-  const questionable = snapshot?.injuries.questionable ?? [];
-  const status = lineupStatus(match);
+function LineupTeaser({ match }: { match: PublicAnalysisSummary }) {
 
   return (
     <section className="home-section home-lineup-teaser" aria-labelledby="sklady-title">
@@ -233,19 +216,19 @@ function LineupTeaser({ match }: { match: MatchAnalysisRecord }) {
         <p className="eyebrow">Składy i absencje</p>
         <h2 id="sklady-title">Kto może zmienić obraz meczu?</h2>
         <p>W raporcie łączymy dostępność zawodników z kontekstem pozycji, regularnością gry i statystykami.</p>
-        <Link href={`/analizy/${match.slug}#sklady`} className="btn-secondary">Sprawdź składy</Link>
+        <Link href={`/analizy/${match.slug}#sklady`} className="btn-secondary">Otwórz składy meczowe</Link>
       </div>
       <div className="home-lineup-summary">
-        <div><span>Status składów</span><strong>{status}</strong></div>
-        <div><span>Potwierdzone absencje</span><strong>{snapshot ? missing.length : "—"}</strong></div>
-        <div><span>Występ niepewny</span><strong>{snapshot ? questionable.length : "—"}</strong></div>
+        <div><span>Status składów</span><strong>{match.lineupStatus}</strong></div>
+        <div><span>Potwierdzone absencje</span><strong>{match.missingCount}</strong></div>
+        <div><span>Występ niepewny</span><strong>{match.questionableCount}</strong></div>
       </div>
     </section>
   );
 }
 
 export function HomeExperience() {
-  const [matches, setMatches] = useState<MatchAnalysisRecord[]>([]);
+  const [matches, setMatches] = useState<PublicAnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [now] = useState(() => new Date());

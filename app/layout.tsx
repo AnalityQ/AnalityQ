@@ -4,6 +4,7 @@ import { Header } from "./components/Header";
 import { PremiumModeController } from "./components/PremiumModeController";
 import { StudioShortcutModal } from "./components/StudioShortcutModal";
 import "./globals.css";
+import "./mobile-polish.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://anality-q.vercel.app"),

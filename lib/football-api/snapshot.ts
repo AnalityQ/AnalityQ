@@ -506,21 +506,28 @@ export function generateMatchSignals(input: {
   standings: MatchStandingsData | null;
   h2h: H2HData | null;
   injuries: MatchInjuriesData;
+  neutralVenue?: boolean;
 }): MatchSignal[] {
   const candidates: MatchSignal[] = [];
   const homeName = localizeTeamName(input.homeName);
   const awayName = localizeTeamName(input.awayName);
-  const home = input.homeVenue.summary;
-  const away = input.awayVenue.summary;
-  const sampleCoverage = `${home.sampleSize} meczów ${teamGenitive(input.homeName)} u siebie i ${away.sampleSize} meczów ${teamGenitive(input.awayName)} na wyjeździe`;
+  const home = (input.neutralVenue ? input.homeOverall : input.homeVenue).summary;
+  const away = (input.neutralVenue ? input.awayOverall : input.awayVenue).summary;
+  const homePlace = input.neutralVenue ? "w ostatnich meczach" : "u siebie";
+  const awayPlace = input.neutralVenue ? "w ostatnich meczach" : "na wyjazdach";
+  const sampleCoverage = input.neutralVenue
+    ? `${home.sampleSize} ostatnich meczów ${teamGenitive(input.homeName)} i ${away.sampleSize} ostatnich meczów ${teamGenitive(input.awayName)}`
+    : `${home.sampleSize} meczów ${teamGenitive(input.homeName)} u siebie i ${away.sampleSize} meczów ${teamGenitive(input.awayName)} na wyjeździe`;
   const confidence = Math.min(94, 45 + Math.min(home.sampleSize, away.sampleSize) * 8);
   if (home.averages.goalsFor !== null && away.averages.goalsAgainst !== null) {
     candidates.push(signal({
       category: "goals",
       strength: home.averages.goalsFor + away.averages.goalsAgainst >= 3 ? "strong" : "medium",
       title: `Profil bramkowy: ${homeName} kontra defensywa ${awayName}`,
-      evidence: `${homeName} ${teamVerb(input.homeName, "zdobywał", "zdobywała")} u siebie średnio ${format(home.averages.goalsFor)} gola, a ${awayName} ${teamVerb(input.awayName, "tracił", "traciła")} na wyjazdach średnio ${format(away.averages.goalsAgainst)}.`,
-      interpretation: "Zestawienie opisuje atak gospodarzy i liczby dopuszczane przez gości; nie przesądza wyniku meczu.",
+      evidence: `${homeName} ${teamVerb(input.homeName, "zdobywał", "zdobywała")} ${homePlace} średnio ${format(home.averages.goalsFor)} gola, a ${awayName} ${teamVerb(input.awayName, "tracił", "traciła")} ${awayPlace} średnio ${format(away.averages.goalsAgainst)}.`,
+      interpretation: input.neutralVenue
+        ? "Zestawienie opiera się na aktualnej formie ogólnej obu drużyn i nie dolicza premii gospodarza."
+        : "Zestawienie opisuje atak gospodarzy i liczby dopuszczane przez gości; nie przesądza wyniku meczu.",
       confidence,
       coverage: sampleCoverage,
     }));
@@ -531,8 +538,10 @@ export function generateMatchSignals(input: {
       category: "corners",
       strength: combined >= 5.8 ? "strong" : "medium",
       title: `Przewaga ${teamGenitive(input.homeName)} w rzutach rożnych`,
-      evidence: `${homeName} ${teamVerb(input.homeName, "wykonywał", "wykonywała")} u siebie średnio ${format(home.averages.cornersFor)} rożnego. ${awayName} ${teamVerb(input.awayName, "pozwalał", "pozwalała")} rywalom na wyjazdach na średnio ${format(away.averages.cornersAgainst)}; ${home.cornersOver85} z ${home.sampleSize} domowych meczów ${teamGenitive(input.homeName)} przekroczyło 8,5 rożnego łącznie.`,
-      interpretation: "Dane wspierają scenariusz przewagi gospodarzy w liczbie rożnych.",
+      evidence: `${homeName} ${teamVerb(input.homeName, "wykonywał", "wykonywała")} ${homePlace} średnio ${format(home.averages.cornersFor)} rożnego. ${awayName} ${teamVerb(input.awayName, "pozwalał", "pozwalała")} rywalom ${awayPlace} na średnio ${format(away.averages.cornersAgainst)}.`,
+      interpretation: input.neutralVenue
+        ? "Dane opisują aktualny profil rzutów rożnych bez założenia przewagi własnego stadionu."
+        : "Dane wspierają scenariusz przewagi gospodarzy w liczbie rożnych.",
       confidence,
       coverage: sampleCoverage,
     }));
@@ -542,7 +551,7 @@ export function generateMatchSignals(input: {
       category: "shots",
       strength: home.averages.shotsFor >= away.averages.shotsAgainst ? "strong" : "medium",
       title: `Atak ${teamGenitive(input.homeName)} a strzały dopuszczane przez ${awayName}`,
-      evidence: `${homeName} ${teamVerb(input.homeName, "oddawał", "oddawała")} u siebie średnio ${format(home.averages.shotsFor)} strzału, a ${awayName} ${teamVerb(input.awayName, "dopuszczał", "dopuszczała")} na wyjazdach średnio ${format(away.averages.shotsAgainst)}. Celne strzały ${teamGenitive(input.homeName)}: ${format(home.averages.shotsOnTargetFor) || "brak danych"} na mecz.`,
+      evidence: `${homeName} ${teamVerb(input.homeName, "oddawał", "oddawała")} ${homePlace} średnio ${format(home.averages.shotsFor)} strzału, a ${awayName} ${teamVerb(input.awayName, "dopuszczał", "dopuszczała")} ${awayPlace} średnio ${format(away.averages.shotsAgainst)}. Celne strzały ${teamGenitive(input.homeName)}: ${format(home.averages.shotsOnTargetFor) || "brak danych"} na mecz.`,
       interpretation: "Porównanie łączy wolumen ataku jednej drużyny z obciążeniem defensywy drugiej.",
       confidence,
       coverage: sampleCoverage,
@@ -553,7 +562,7 @@ export function generateMatchSignals(input: {
       category: "cards",
       strength: home.averages.cardsFor + away.averages.cardsFor >= 4 ? "strong" : "medium",
       title: `Kartki: ${homeName} i ${awayName}`,
-      evidence: `${homeName} ${teamVerb(input.homeName, "otrzymywał", "otrzymywała")} u siebie średnio ${format(home.averages.cardsFor)} kartki, a ${awayName} na wyjazdach ${format(away.averages.cardsFor)}.`,
+      evidence: `${homeName} ${teamVerb(input.homeName, "otrzymywał", "otrzymywała")} ${homePlace} średnio ${format(home.averages.cardsFor)} kartki, a ${awayName} ${awayPlace} ${format(away.averages.cardsFor)}.`,
       interpretation: "To suma osobno raportowanych żółtych i czerwonych kartek, o ile oba pola były dostępne.",
       confidence: Math.min(confidence, 86),
       coverage: sampleCoverage,
@@ -561,11 +570,17 @@ export function generateMatchSignals(input: {
   }
   if (home.sampleSize && away.sampleSize) {
     candidates.push(signal({
-      category: "homeAway",
+      category: input.neutralVenue ? "form" : "homeAway",
       strength: Math.abs(home.points / home.sampleSize - away.points / away.sampleSize) >= 1 ? "strong" : "medium",
-      title: `Forma domowa ${teamGenitive(input.homeName)} kontra wyjazdowa ${teamGenitive(input.awayName)}`,
-      evidence: `${homeName}: ${home.wins}-${home.draws}-${home.losses} u siebie (${home.points} pkt). ${awayName}: ${away.wins}-${away.draws}-${away.losses} na wyjeździe (${away.points} pkt).`,
-      interpretation: "Forma w miejscu rozegrania meczu ma większe znaczenie niż sam bilans ogólny.",
+      title: input.neutralVenue
+        ? `Aktualna forma: ${homeName} kontra ${awayName}`
+        : `Forma domowa ${teamGenitive(input.homeName)} kontra wyjazdowa ${teamGenitive(input.awayName)}`,
+      evidence: input.neutralVenue
+        ? `${homeName}: ${home.wins}-${home.draws}-${home.losses} w ostatniej próbie (${home.points} pkt). ${awayName}: ${away.wins}-${away.draws}-${away.losses} (${away.points} pkt).`
+        : `${homeName}: ${home.wins}-${home.draws}-${home.losses} u siebie (${home.points} pkt). ${awayName}: ${away.wins}-${away.draws}-${away.losses} na wyjeździe (${away.points} pkt).`,
+      interpretation: input.neutralVenue
+        ? "Mecz jest liczony na neutralnym terenie, dlatego porównujemy formę ogólną bez premii gospodarza."
+        : "Forma w miejscu rozegrania meczu ma większe znaczenie niż sam bilans ogólny.",
       confidence,
       coverage: sampleCoverage,
     }));
@@ -630,11 +645,12 @@ export function generateMatchRisks(input: {
   awayVenue: TeamRecentData;
   injuries: MatchInjuriesData;
   lineups: MatchLineupsData;
+  neutralVenue?: boolean;
 }): MatchRisk[] {
   const risks: MatchRisk[] = [];
   for (const [name, data, place] of [
-    [input.homeName, input.homeVenue, "u siebie"],
-    [input.awayName, input.awayVenue, "na wyjeździe"],
+    [input.homeName, input.neutralVenue ? input.homeOverall : input.homeVenue, input.neutralVenue ? "w ostatnich meczach" : "u siebie"],
+    [input.awayName, input.neutralVenue ? input.awayOverall : input.awayVenue, input.neutralVenue ? "w ostatnich meczach" : "na wyjeździe"],
   ] as const) {
     if (data.summary.sampleSize < 3) {
       risks.push({
@@ -642,7 +658,9 @@ export function generateMatchRisks(input: {
         level: "high",
         title: `Mała próba ${teamGenitive(name)}`,
         evidence: `Próba ${place} obejmuje tylko ${data.summary.sampleSize} spotkania.`,
-        impact: "Średnie dom/wyjazd mogą silnie zmienić się po jednym kolejnym meczu.",
+        impact: input.neutralVenue
+          ? "Średnie z ostatniej formy mogą silnie zmienić się po jednym kolejnym meczu."
+          : "Średnie dom/wyjazd mogą silnie zmienić się po jednym kolejnym meczu.",
       });
     }
     const xgCoverage = data.summary.coverage.xgFor || 0;
@@ -674,7 +692,7 @@ export function generateMatchRisks(input: {
       impact: "Brak rekordu nie oznacza, że kadra jest kompletna.",
     });
   }
-  for (const [name, overall, venue] of [
+  if (!input.neutralVenue) for (const [name, overall, venue] of [
     [input.homeName, input.homeOverall, input.homeVenue],
     [input.awayName, input.awayOverall, input.awayVenue],
   ] as const) {
@@ -703,6 +721,7 @@ export function generateAutomaticSummary(input: {
   signals: MatchSignal[];
   risks: MatchRisk[];
   injuries: MatchInjuriesData;
+  neutralVenue?: boolean;
 }) {
   const paragraphs: string[] = [];
   const homeName = localizeTeamName(input.homeName);
@@ -716,12 +735,12 @@ export function generateAutomaticSummary(input: {
   const away = input.awayVenue.summary;
   if (home.averages.goalsFor !== null && away.averages.goalsAgainst !== null) {
     paragraphs.push(
-      `${homeName} ${teamVerb(input.homeName, "zdobywał", "zdobywała")} u siebie średnio ${format(home.averages.goalsFor)} gola i ${teamVerb(input.homeName, "tracił", "traciła")} ${format(home.averages.goalsAgainst) || "brak pełnych danych"}. ${awayName} na wyjazdach ${teamVerb(input.awayName, "zdobywał", "zdobywała")} średnio ${format(away.averages.goalsFor) || "brak pełnych danych"} gola, a ${teamVerb(input.awayName, "tracił", "traciła")} ${format(away.averages.goalsAgainst)}.`,
+      `${homeName} ${teamVerb(input.homeName, "zdobywał", "zdobywała")} ${input.neutralVenue ? "w ostatnich meczach" : "u siebie"} średnio ${format(home.averages.goalsFor)} gola i ${teamVerb(input.homeName, "tracił", "traciła")} ${format(home.averages.goalsAgainst) || "brak pełnych danych"}. ${awayName} ${input.neutralVenue ? "w ostatnich meczach" : "na wyjazdach"} ${teamVerb(input.awayName, "zdobywał", "zdobywała")} średnio ${format(away.averages.goalsFor) || "brak pełnych danych"} gola, a ${teamVerb(input.awayName, "tracił", "traciła")} ${format(away.averages.goalsAgainst)}.`,
     );
   }
   if (home.averages.shotsFor !== null && away.averages.shotsAgainst !== null) {
     paragraphs.push(
-      `${homeName} ${teamVerb(input.homeName, "oddawał", "oddawała")} u siebie średnio ${format(home.averages.shotsFor)} strzału (${format(home.averages.shotsOnTargetFor) || "brak danych"} celnego), natomiast ${awayName} ${teamVerb(input.awayName, "dopuszczał", "dopuszczała")} na wyjazdach średnio ${format(away.averages.shotsAgainst)} strzału rywali.`,
+      `${homeName} ${teamVerb(input.homeName, "oddawał", "oddawała")} ${input.neutralVenue ? "w ostatnich meczach" : "u siebie"} średnio ${format(home.averages.shotsFor)} strzału (${format(home.averages.shotsOnTargetFor) || "brak danych"} celnego), natomiast ${awayName} ${teamVerb(input.awayName, "dopuszczał", "dopuszczała")} ${input.neutralVenue ? "w ostatnich meczach" : "na wyjazdach"} średnio ${format(away.averages.shotsAgainst)} strzału rywali.`,
     );
   }
   if (input.signals[0]) {

@@ -46,6 +46,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [completeness, setCompleteness] = useState<"all" | "low" | "basic" | "good" | "complete">("all");
   const [publishConfirmation, setPublishConfirmation] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [featuredSaving, setFeaturedSaving] = useState(false);
 
   const loadMatches = useCallback(async () => {
     setLoading(true);
@@ -101,6 +102,9 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     () => matches.find((match) => match.featuredType === "match_of_the_day") ?? null,
     [matches],
   );
+  const publishedMatches = useMemo(() => matches
+    .filter((match) => match.publicationStatus === "published")
+    .sort((a, b) => new Date(a.basic.kickoff).getTime() - new Date(b.basic.kickoff).getTime()), [matches]);
 
   function openEditor(mode: AnalysisEditorMode, slotNumber?: number) {
     const slot = slotNumber ?? getNextFreeSlot(matches);
@@ -176,6 +180,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   }
 
   async function handleFeatured(id: string, featured: boolean) {
+    setFeaturedSaving(true);
     try {
       await setFeaturedAnalysis(id, featured ? "match_of_the_day" : null);
       setToast(featured ? "Ustawiono nowy mecz dnia." : "Usunięto oznaczenie meczu dnia.");
@@ -183,7 +188,17 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     } catch (error) {
       setErrorMessage(getStudioDatabaseErrorMessage(error));
       setToast("Nie udało się zmienić meczu dnia.");
+    } finally {
+      setFeaturedSaving(false);
     }
+  }
+
+  async function handleFeaturedSelection(id: string) {
+    if (id) {
+      await handleFeatured(id, true);
+      return;
+    }
+    if (featuredMatch) await handleFeatured(featuredMatch.id, false);
   }
 
   async function handleDelete(id: string) {
@@ -216,11 +231,31 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       {loading && <div className="studio-message">Ładowanie analiz…</div>}
       {errorMessage && <div className="studio-error" role="alert">{errorMessage}</div>}
 
-      <div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm text-amber-50">
-        <strong>Mecz dnia:</strong>{" "}
-        {featuredMatch
-          ? `${featuredMatch.basic.homeTeam || "Gospodarz"} – ${featuredMatch.basic.awayTeam || "Gość"}`
-          : "brak ręcznego wyboru — strona główna pokaże najbliższą opublikowaną analizę."}
+      <div className="studio-featured-control">
+        <div>
+          <p className="eyebrow">Strona główna</p>
+          <h2>Wybierz mecz dnia</h2>
+          <p>{featuredMatch
+            ? `Aktualnie: ${featuredMatch.basic.homeTeam || "Gospodarz"} – ${featuredMatch.basic.awayTeam || "Gość"}`
+            : "Tryb automatyczny pokazuje najbliższą opublikowaną analizę."}</p>
+        </div>
+        <label>
+          <span>Opublikowana analiza</span>
+          <select
+            className="search-input"
+            value={featuredMatch?.id || ""}
+            disabled={featuredSaving || publishedMatches.length === 0}
+            onChange={(event) => void handleFeaturedSelection(event.target.value)}
+          >
+            <option value="">Automatycznie · najbliższy mecz</option>
+            {publishedMatches.map((match) => (
+              <option key={match.id} value={match.id}>
+                {match.basic.homeTeam || "Gospodarz"} – {match.basic.awayTeam || "Gość"}
+              </option>
+            ))}
+          </select>
+          <small aria-live="polite">{featuredSaving ? "Zapisywanie wyboru…" : "Zmiana zapisuje się od razu."}</small>
+        </label>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

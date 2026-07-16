@@ -1,18 +1,25 @@
-import type { MatchAnalysisRecord } from "./types";
+import type { FeaturedType, PublicationStatus } from "./types";
 
-function kickoffTime(analysis: MatchAnalysisRecord) {
+type FeaturedCandidate = {
+  basic: { kickoff: string };
+  featuredType: FeaturedType;
+  publicationStatus: PublicationStatus;
+  slotNumber: number;
+};
+
+function kickoffTime(analysis: FeaturedCandidate) {
   const time = new Date(analysis.basic.kickoff).getTime();
   return Number.isFinite(time) ? time : null;
 }
 
-function byNearestKickoff(a: MatchAnalysisRecord, b: MatchAnalysisRecord) {
+function byNearestKickoff(a: FeaturedCandidate, b: FeaturedCandidate) {
   const aTime = kickoffTime(a) ?? Number.MAX_SAFE_INTEGER;
   const bTime = kickoffTime(b) ?? Number.MAX_SAFE_INTEGER;
   return aTime - bTime || a.slotNumber - b.slotNumber;
 }
 
-export function selectFeaturedAnalysis(
-  analyses: MatchAnalysisRecord[],
+export function selectFeaturedAnalysis<T extends FeaturedCandidate>(
+  analyses: T[],
   now = new Date(),
 ) {
   const published = analyses.filter((analysis) => analysis.publicationStatus === "published");

@@ -7,12 +7,12 @@ import {
   getPublicDatabaseErrorMessage,
   getPublishedAnalyses,
 } from "@/lib/database";
-import type { MatchAnalysisRecord } from "@/lib/types";
+import type { PublicAnalysisSummary } from "@/lib/public-analysis";
 import { EmptyState } from "./EmptyState";
 import { MatchCard } from "./MatchCard";
 
 export function HomePublishedAnalyses() {
-  const [matches, setMatches] = useState<MatchAnalysisRecord[]>([]);
+  const [matches, setMatches] = useState<PublicAnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 

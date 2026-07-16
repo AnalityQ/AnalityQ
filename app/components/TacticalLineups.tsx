@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  normalizeHistoricalTeamLineup,
   predictTeamLineup,
   predictedLineupRule,
   type PredictedLineupPlayer,
@@ -155,9 +156,13 @@ function TacticalTeam({
   snapshot: FootballAnalysisSnapshot;
   onPlayer: (player: DisplayPlayer, team: DisplayTeam) => void;
 }) {
-  const historical = snapshot.lineups.historicalStarters.find((item) => item.teamId === team.teamId);
+  const historicalSource = snapshot.lineups.historicalStarters.find((item) => item.teamId === team.teamId);
+  const historical = historicalSource ? normalizeHistoricalTeamLineup(historicalSource) : null;
   const absences = [...snapshot.injuries.missing, ...snapshot.injuries.questionable]
     .filter((injury) => injury.teamId === team.teamId);
+  const hasPitchLayout = team.players.length === 11
+    && Boolean(team.formation)
+    && team.players.every((player) => /^\d+:\d+$/.test(player.grid || ""));
 
   return (
     <section className="tactical-team">
@@ -176,7 +181,7 @@ function TacticalTeam({
         <small>Aktualizacja: {formatUpdate(snapshot.fetchedAt)}</small>
       </div>
 
-      {team.players.length === 11 ? (
+      {hasPitchLayout ? (
         <div className="tactical-pitch" aria-label={`${team.statusLabel}: ${localizeTeamName(team.teamName)}`}>
           {team.players.map((player, index) => {
             const injury = absences.find((item) => item.playerId !== null && item.playerId === player.id);
@@ -198,6 +203,24 @@ function TacticalTeam({
             );
           })}
         </div>
+      ) : team.players.length === 11 ? (
+        <div className="tactical-selection-list" aria-label={`${team.statusLabel}: ${localizeTeamName(team.teamName)}`}>
+          <p>Przewidywana jedenastka według częstotliwości startów. Brak potwierdzonej formacji, dlatego nie ustawiamy zawodników na boisku.</p>
+          <div>
+            {team.players.map((player, index) => (
+              <button
+                key={player.id || `${player.name}-${index}`}
+                type="button"
+                onClick={() => onPlayer(player, team)}
+                title={player.name}
+              >
+                <PersonPhoto src={player.playerPhoto} alt="" size={36} />
+                <span><strong>{player.name}</strong><small>{localizePlayerPosition(player.position) || "Pozycja: brak danych"}</small></span>
+                {player.confidence !== undefined && <em>{player.confidence}% · {player.starts}/{player.sampleSize}</em>}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : (
         <div className="tactical-pitch tactical-pitch-empty"><p>{team.reason || "Brak danych o składzie."}</p></div>
       )}
@@ -206,10 +229,9 @@ function TacticalTeam({
         <div className="tactical-list"><h4>Rezerwowi</h4><div>{team.substitutes.map((player, index) => <button key={player.id || `${player.name}-${index}`} type="button" onClick={() => onPlayer(player, team)}>{player.number !== null ? `#${player.number} ` : ""}{player.name}</button>)}</div></div>
       )}
       {team.status !== "official" && historical && (
-        <div className="tactical-list"><h4>Najczęściej rozpoczynający</h4><div>{historical.players.slice(0, 8).map((player) => {
-          const legacy = player as typeof player & { playerId?: number; playerName?: string };
-          return <span key={player.id || legacy.playerId}>{player.name || legacy.playerName || "Zawodnik"} · {player.starts}/{player.sampleSize}</span>;
-        })}</div></div>
+        <div className="tactical-list"><h4>Najczęściej rozpoczynający</h4><div>{historical.players.slice(0, 11).map((player) => (
+          <span key={player.id}>{player.name} · {player.starts}/{player.sampleSize}</span>
+        ))}</div></div>
       )}
       {absences.length > 0 && (
         <div className="tactical-list tactical-absence-list"><h4>Nieobecni i wątpliwi</h4><div>{absences.map((injury) => <span key={`${injury.playerId}-${injury.playerName}`}>{injury.playerName} · {injury.type === "missing" ? "nieobecny" : "wątpliwy"}</span>)}</div></div>
@@ -235,7 +257,8 @@ export function TacticalLineups({ snapshot }: { snapshot: FootballAnalysisSnapsh
           reason: null,
         };
       }
-      const historical = snapshot.lineups.historicalStarters.find((team) => team.teamId === fixtureTeam.id);
+      const historicalSource = snapshot.lineups.historicalStarters.find((team) => team.teamId === fixtureTeam.id);
+      const historical = historicalSource ? normalizeHistoricalTeamLineup(historicalSource) : null;
       const predicted = historical
         ? predictTeamLineup(historical, snapshot.injuries, snapshot.playerInsights)
         : null;

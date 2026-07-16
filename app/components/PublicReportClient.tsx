@@ -36,6 +36,7 @@ import { CountryLabel, LeagueLogo, TeamLogo } from "./ApiImage";
 import { FootballReportTabs } from "./FootballReportTabs";
 import { PreMatchHighlights } from "./PreMatchHighlights";
 import { usePremiumMode } from "@/lib/premium-mode";
+import { contextualSnapshotContent } from "@/lib/football-api/match-context";
 
 function formatDate(value: string) {
   if (!value) return "brak daty";
@@ -201,13 +202,14 @@ export function PublicReportClient({ slug }: { slug: string }) {
   const reportMode = premiumModeActive ? "premium" : match.basic.status;
 
   const snapshot = match.dataSource?.snapshot;
+  const snapshotContent = snapshot ? contextualSnapshotContent(snapshot) : null;
   const homeName = localizeTeamName(snapshot?.fixture.homeTeam.name || match.basic.homeTeam) || "Gospodarz";
   const awayName = localizeTeamName(snapshot?.fixture.awayTeam.name || match.basic.awayTeam) || "Gość";
   const leagueName = localizeCompetitionName(snapshot?.fixture.leagueName || match.basic.league) || "Rozgrywki";
   const roundName = localizeRoundName(snapshot?.fixture.round);
   const modelSummary = localizePublicText(match.notes.summary.trim()
     || match.notes.finalAssessment.trim()
-    || snapshot?.automaticSummary
+    || snapshotContent?.automaticSummary
     || generateModelSummary(match, metrics));
   const scenarioText = localizePublicText(match.notes.scenarios.trim() || generateScenarioText(match, metrics));
   const riskText = localizePublicText(match.notes.keyRisks.trim() || generateRiskText(match, metrics));
@@ -240,9 +242,9 @@ export function PublicReportClient({ slug }: { slug: string }) {
                   </div>
                 </div>
                 <div className="report-team-identity">
-                  <div><TeamLogo src={snapshot.fixture.homeTeam.logo} alt={homeName} size={96} priority /><h1>{homeName}</h1><span>Gospodarz{isNationalTeamName(snapshot.fixture.homeTeam.name) && <CountryLabel name={snapshot.fixture.homeTeam.name} compact />}</span></div>
+                  <div><TeamLogo src={snapshot.fixture.homeTeam.logo} alt={homeName} size={96} priority /><h1 title={homeName}>{homeName}</h1><span>{snapshotContent?.venueContext.mode === "neutral" ? "Drużyna 1" : "Gospodarz"}{isNationalTeamName(snapshot.fixture.homeTeam.name) && <CountryLabel name={snapshot.fixture.homeTeam.name} compact />}</span></div>
                   <b>VS</b>
-                  <div><TeamLogo src={snapshot.fixture.awayTeam.logo} alt={awayName} size={96} priority /><h1>{awayName}</h1><span>Gość{isNationalTeamName(snapshot.fixture.awayTeam.name) && <CountryLabel name={snapshot.fixture.awayTeam.name} compact />}</span></div>
+                  <div><TeamLogo src={snapshot.fixture.awayTeam.logo} alt={awayName} size={96} priority /><h1 title={awayName}>{awayName}</h1><span>{snapshotContent?.venueContext.mode === "neutral" ? "Drużyna 2" : "Gość"}{isNationalTeamName(snapshot.fixture.awayTeam.name) && <CountryLabel name={snapshot.fixture.awayTeam.name} compact />}</span></div>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-300">{formatDate(match.basic.kickoff)}{snapshot.fixture.referee ? ` · sędzia: ${snapshot.fixture.referee}` : ""}</p>
               </>
@@ -257,10 +259,12 @@ export function PublicReportClient({ slug }: { slug: string }) {
               </>
             )}
             <p className="mt-2 text-sm text-slate-400">{match.basic.venue ? `Stadion / miejsce: ${match.basic.venue}` : "Stadion / miejsce: brak danych"}</p>
+            {snapshotContent && <p className={`report-venue-context report-venue-${snapshotContent.venueContext.mode}`}><strong>{snapshotContent.venueContext.label}</strong> · {snapshotContent.venueContext.reason}</p>}
             <div className="mt-5 flex flex-wrap gap-2">
               <StatusBadge status={match.basic.status} />
               <RiskBadge level={metrics.effectiveRiskLevel} />
               <ConfidenceBadge value={metrics.confidence} />
+              {snapshot && <a href="#sklady" className="report-lineups-link">Składy meczowe</a>}
             </div>
           </div>
           <div className="report-kpi-grid grid gap-4 sm:grid-cols-2 lg:min-w-[430px]">
@@ -308,8 +312,8 @@ export function PublicReportClient({ slug }: { slug: string }) {
         </div>}
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <MetricCard label="Oczekiwane gole gospodarzy" value={formatNumber(metrics.expectedHomeGoals)} note={homeName} tone="cyan" />
-          <MetricCard label="Oczekiwane gole gości" value={formatNumber(metrics.expectedAwayGoals)} note={awayName} />
+          <MetricCard label={`Oczekiwane gole · ${homeName}`} value={formatNumber(metrics.expectedHomeGoals)} note={snapshotContent?.venueContext.mode === "neutral" ? "teren neutralny" : "gospodarz"} tone="cyan" />
+          <MetricCard label={`Oczekiwane gole · ${awayName}`} value={formatNumber(metrics.expectedAwayGoals)} note={snapshotContent?.venueContext.mode === "neutral" ? "teren neutralny" : "wyjazd"} />
           <MetricCard label="Łączne oczekiwane gole" value={formatNumber(metrics.totalExpectedGoals)} note="suma modelowa" tone="gold" />
           <MetricCard label="Oczekiwane rożne" value={formatNumber(metrics.expectedCorners, 1)} note="łącznie" />
           <MetricCard label="Oczekiwane kartki" value={formatNumber(metrics.expectedCards, 1)} note="łącznie" />
@@ -349,7 +353,9 @@ export function PublicReportClient({ slug }: { slug: string }) {
         </section>
 
         <section className="mt-8">
-          <h2 className="mb-5 text-2xl font-black text-white">Analiza kursów</h2>
+          <p className="eyebrow">Model a rynek</p>
+          <h2 className="mb-2 mt-2 text-2xl font-black text-white">Ocena modelu i kursów</h2>
+          <p className="mb-5 text-sm leading-6 text-slate-400">Kompaktowe porównanie bez szerokiej tabeli i bez procentów korekty administratora.</p>
           <MarketAnalysisTable metrics={metrics} />
         </section>
 

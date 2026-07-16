@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { calculateFullReportMetrics } from "@/lib/calculations";
 import {
   databaseChangeEvent,
   getPublicDatabaseErrorMessage,
   getPublishedAnalyses,
 } from "@/lib/database";
-import type { MatchAnalysisRecord } from "@/lib/types";
+import type { PublicAnalysisSummary } from "@/lib/public-analysis";
 import { EmptyState } from "./EmptyState";
 import { MatchCard } from "./MatchCard";
 import { MetricCard } from "./MetricCard";
@@ -40,7 +39,7 @@ export function PublicAnalysisList() {
   const [query, setQuery] = useState("");
   const [league, setLeague] = useState("");
   const [sort, setSort] = useState("upcoming");
-  const [matches, setMatches] = useState<MatchAnalysisRecord[]>([]);
+  const [matches, setMatches] = useState<PublicAnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -75,23 +74,20 @@ export function PublicAnalysisList() {
 
   const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
-      const metrics = calculateFullReportMetrics(match);
-      const haystack = `${match.basic.league} ${match.basic.country} ${match.basic.homeTeam} ${match.basic.awayTeam} ${match.notes.summary}`.toLowerCase();
+      const haystack = `${match.league.name} ${match.league.country} ${match.homeTeam.name} ${match.awayTeam.name} ${match.summary}`.toLowerCase();
       const matchesQuery = !query.trim() || haystack.includes(query.toLowerCase());
       const matchesLeague = !league.trim() || match.basic.league.toLowerCase().includes(league.toLowerCase());
       const matchesFilter =
         filter === "all" ||
         match.basic.status === filter ||
-        metrics.effectiveRiskLevel === filter ||
-        (filter === "value60" && metrics.valueIndex !== null && metrics.valueIndex >= 60) ||
+        match.metrics.effectiveRiskLevel === filter ||
+        (filter === "value60" && match.metrics.valueIndex !== null && match.metrics.valueIndex >= 60) ||
         (filter === "today" && isToday(match.basic.kickoff));
 
       return matchesQuery && matchesLeague && matchesFilter;
     }).sort((a, b) => {
-      const aMetrics = calculateFullReportMetrics(a);
-      const bMetrics = calculateFullReportMetrics(b);
-      if (sort === "value") return (bMetrics.valueIndex ?? -1) - (aMetrics.valueIndex ?? -1);
-      if (sort === "completeness") return bMetrics.dataCompleteness.percent - aMetrics.dataCompleteness.percent;
+      if (sort === "value") return (b.metrics.valueIndex ?? -1) - (a.metrics.valueIndex ?? -1);
+      if (sort === "completeness") return b.metrics.completeness - a.metrics.completeness;
       if (sort === "newest") return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       const aTime = a.basic.kickoff ? new Date(a.basic.kickoff).getTime() : Number.MAX_SAFE_INTEGER;
       const bTime = b.basic.kickoff ? new Date(b.basic.kickoff).getTime() : Number.MAX_SAFE_INTEGER;
@@ -122,9 +118,9 @@ export function PublicAnalysisList() {
   }
 
   const highestValue = matches.reduce((max, match) => {
-    return Math.max(max, calculateFullReportMetrics(match).valueIndex ?? 0);
+    return Math.max(max, match.metrics.valueIndex ?? 0);
   }, 0);
-  const lowRiskCount = matches.filter((match) => calculateFullReportMetrics(match).effectiveRiskLevel === "low").length;
+  const lowRiskCount = matches.filter((match) => match.metrics.effectiveRiskLevel === "low").length;
   const premiumCount = matches.filter((match) => match.basic.status === "premium").length;
 
   if (matches.length === 0) {

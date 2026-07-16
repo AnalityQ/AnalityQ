@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { selectImportMatches } from "@/lib/football-api/apply-import";
+import {
+  filterFixtureSummaries,
+  sortFixtureSummaries,
+} from "@/lib/football-api/fixture-list";
 import { studioSessionExpiredEvent } from "@/lib/studio-auth";
 import type {
   AggregatedLastMatches,
@@ -11,6 +15,9 @@ import type {
 } from "@/lib/football-api/types";
 import { Logo } from "../Logo";
 import { LeagueLogo, TeamLogo } from "../ApiImage";
+
+const fixturesPageSize = 24;
+const requestTimeoutMs = 25_000;
 
 const importSteps = [
   "Łączenie ze źródłem danych…",
@@ -54,7 +61,12 @@ function cards(match: NormalizedTeamMatchStats, side: "for" | "against") {
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
-  const payload = (await response.json()) as { data?: T; error?: { message?: string } };
+  let payload: { data?: T; error?: { message?: string } } = {};
+  try {
+    payload = await response.json() as typeof payload;
+  } catch {
+    // Odpowiedź pośrednika lub platformy może nie być JSON-em.
+  }
   if (response.status === 401) {
     window.dispatchEvent(new Event(studioSessionExpiredEvent));
     throw new Error("Sesja wygasła. Zaloguj się ponownie.");
@@ -75,8 +87,8 @@ function FixtureCard({ fixture, onSelect }: { fixture: FootballFixtureSummary; o
       </div>
       <div className="mt-4 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
         <strong className="row-span-2 text-lg text-cyan-100">{formatTime(fixture.kickoff)}</strong>
-        <div className="flex items-center gap-2"><TeamLogo src={fixture.homeTeam.logo} alt={fixture.homeTeam.name} size={34} /><span className="font-bold text-white">{fixture.homeTeam.name}</span></div>
-        <div className="flex items-center gap-2"><TeamLogo src={fixture.awayTeam.logo} alt={fixture.awayTeam.name} size={34} /><span className="font-bold text-white">{fixture.awayTeam.name}</span></div>
+        <div className="flex min-w-0 items-center gap-2"><TeamLogo src={fixture.homeTeam.logo} alt={fixture.homeTeam.name} size={34} /><span className="truncate font-bold text-white" title={fixture.homeTeam.name}>{fixture.homeTeam.name}</span></div>
+        <div className="flex min-w-0 items-center gap-2"><TeamLogo src={fixture.awayTeam.logo} alt={fixture.awayTeam.name} size={34} /><span className="truncate font-bold text-white" title={fixture.awayTeam.name}>{fixture.awayTeam.name}</span></div>
       </div>
       {fixture.venue && <p className="mt-3 text-xs text-slate-500">{fixture.venue}</p>}
       <button type="button" className="btn-primary mt-4 w-full justify-center" onClick={onSelect}>Wybierz mecz</button>
@@ -168,12 +180,15 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
   const [fixtures, setFixtures] = useState<FootballFixtureSummary[]>([]);
   const [fixturesLoading, setFixturesLoading] = useState(false);
   const [fixturesRequested, setFixturesRequested] = useState(false);
+  const [visibleLimit, setVisibleLimit] = useState(fixturesPageSize);
   const [error, setError] = useState("");
   const [imported, setImported] = useState<FootballMatchImport | null>(null);
   const [importStep, setImportStep] = useState(-1);
   const [homeSelected, setHomeSelected] = useState<number[]>([]);
   const [awaySelected, setAwaySelected] = useState<number[]>([]);
   const [refreshPrompt, setRefreshPrompt] = useState(false);
+  const fixturesRequestRef = useRef<AbortController | null>(null);
+  const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -183,26 +198,60 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
     };
     window.addEventListener("keydown", handleKey);
     return () => {
+      const activeRequest = fixturesRequestRef.current;
+      fixturesRequestRef.current = null;
+      activeRequest?.abort();
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKey);
     };
   }, [onClose]);
 
-  const visibleFixtures = useMemo(() => {
-    const normalized = query.toLowerCase().trim();
-    return fixtures.filter((fixture) => !normalized || `${fixture.leagueName} ${fixture.homeTeam.name} ${fixture.awayTeam.name}`.toLowerCase().includes(normalized));
-  }, [fixtures, query]);
+  const filteredFixtures = useMemo(
+    () => filterFixtureSummaries(fixtures, deferredQuery),
+    [deferredQuery, fixtures],
+  );
+  const visibleFixtures = useMemo(
+    () => filteredFixtures.slice(0, visibleLimit),
+    [filteredFixtures, visibleLimit],
+  );
+  const remainingFixtures = Math.max(0, filteredFixtures.length - visibleFixtures.length);
 
   const selectedImport = useMemo(() => imported ? selectImportMatches(imported, homeSelected, awaySelected) : null, [awaySelected, homeSelected, imported]);
 
   async function loadFixtures(refresh = false) {
-    setFixturesLoading(true); setFixturesRequested(true); setError("");
+    fixturesRequestRef.current?.abort();
+    const controller = new AbortController();
+    fixturesRequestRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+
+    setFixturesLoading(true);
+    setFixturesRequested(true);
+    setVisibleLimit(fixturesPageSize);
+    setError("");
     try {
-      const response = await fetch(`/api/football/fixtures?date=${encodeURIComponent(date)}${refresh ? "&refresh=true" : ""}`);
-      setFixtures(await readResponse<FootballFixtureSummary[]>(response));
+      const response = await fetch(
+        `/api/football/fixtures?date=${encodeURIComponent(date)}${refresh ? "&refresh=true" : ""}`,
+        { cache: "no-store", signal: controller.signal },
+      );
+      const data = await readResponse<FootballFixtureSummary[]>(response);
+      setFixtures(sortFixtureSummaries(data));
     } catch (loadError) {
-      setFixtures([]); setError(loadError instanceof Error ? loadError.message : "Nie udało się pobrać listy meczów.");
-    } finally { setFixturesLoading(false); }
+      if (controller.signal.aborted && fixturesRequestRef.current !== controller) return;
+      setFixtures([]);
+      setError(
+        loadError instanceof Error && loadError.name === "AbortError"
+          ? "Pobieranie meczów trwało zbyt długo. Sprawdź połączenie i spróbuj ponownie."
+          : loadError instanceof Error
+            ? loadError.message
+            : "Nie udało się pobrać listy meczów.",
+      );
+    } finally {
+      window.clearTimeout(timeout);
+      if (fixturesRequestRef.current === controller) {
+        fixturesRequestRef.current = null;
+        setFixturesLoading(false);
+      }
+    }
   }
 
   async function loadImport(fixtureId: number, refresh = false) {
@@ -242,14 +291,16 @@ export function MatchImportModal({ onClose, onApply }: { onClose: () => void; on
             </div>
           ) : (
             <div>
-              <div className="api-picker-controls"><label><span>Data meczów</span><input className="admin-input" type="date" value={date} onChange={(event) => { setDate(event.target.value); setFixturesRequested(false); setFixtures([]); setError(""); }} /></label><button type="button" className="btn-primary" disabled={fixturesLoading} onClick={() => void loadFixtures()}>{fixturesLoading ? "Ładowanie meczów…" : "Pokaż mecze"}</button><label><span>Wyszukaj drużynę lub ligę</span><input className="admin-input" type="search" placeholder="np. Polska lub Liga Mistrzów" value={query} onChange={(event) => setQuery(event.target.value)} /></label></div>
-              {fixturesLoading && <div className="studio-message">Ładowanie meczów…</div>}
+              <div className="api-picker-controls"><label><span>Data meczów</span><input className="admin-input" type="date" value={date} onChange={(event) => { const activeRequest = fixturesRequestRef.current; fixturesRequestRef.current = null; activeRequest?.abort(); setFixturesLoading(false); setDate(event.target.value); setFixturesRequested(false); setFixtures([]); setVisibleLimit(fixturesPageSize); setError(""); }} /></label><button type="button" className="btn-primary" disabled={fixturesLoading} onClick={() => void loadFixtures()}>{fixturesLoading ? "Ładowanie meczów…" : "Pokaż mecze"}</button><label><span>Wyszukaj drużynę lub ligę</span><input className="admin-input" type="search" placeholder="np. Polska lub Liga Mistrzów" value={query} onChange={(event) => { setQuery(event.target.value); setVisibleLimit(fixturesPageSize); }} /></label></div>
+              {fixturesLoading && <div className="api-fixture-loading" aria-live="polite"><div className="studio-message">Pobieranie aktualnej listy meczów…</div><div className="api-fixture-skeleton-grid" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <span key={index} />)}</div></div>}
               {!fixturesLoading && fixtures.length === 0 && !error && <div className="studio-message">{fixturesRequested ? "Nie znaleziono meczów dla wybranej daty." : "Wybierz datę i kliknij „Pokaż mecze”."}</div>}
-              {!fixturesLoading && fixtures.length > 0 && visibleFixtures.length === 0 && <div className="studio-message">Nie znaleziono meczów pasujących do wyszukiwania.</div>}
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} onSelect={() => void loadImport(fixture.id)} />)}</div>
+              {!fixturesLoading && fixtures.length > 0 && filteredFixtures.length === 0 && <div className="studio-message">Nie znaleziono meczów pasujących do wyszukiwania.</div>}
+              {!fixturesLoading && filteredFixtures.length > 0 && <div className="api-fixture-results" aria-live="polite"><span>Znaleziono {filteredFixtures.length} spotkań</span><strong>Pokazujemy {visibleFixtures.length}</strong></div>}
+              {!fixturesLoading && <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} onSelect={() => void loadImport(fixture.id)} />)}</div>}
+              {!fixturesLoading && remainingFixtures > 0 && <button type="button" className="btn-secondary api-fixture-more" onClick={() => setVisibleLimit((limit) => limit + fixturesPageSize)}>Pokaż kolejne ({Math.min(fixturesPageSize, remainingFixtures)})</button>}
             </div>
           )}
-          {error && <div className="studio-error" role="alert">{error}</div>}
+          {error && <div className="studio-error api-fixture-error" role="alert"><span>{error}</span>{!imported && <button type="button" className="btn-secondary" disabled={fixturesLoading} onClick={() => void loadFixtures()}>Spróbuj ponownie</button>}</div>}
         </div>
         <footer className="match-import-footer"><button type="button" className="btn-secondary" onClick={onClose}>Anuluj</button>{selectedImport && <button type="button" className="btn-primary" onClick={() => onApply(selectedImport)}>Uzupełnij formularz</button>}</footer>
       </div>

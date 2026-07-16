@@ -18,20 +18,19 @@ type PricingPlan = {
 };
 
 export function PricingCard({ plan }: { plan: PricingPlan }) {
-  const [, setPurchaseTaps] = useState(0);
+  const [purchaseTaps, setPurchaseTaps] = useState(0);
   const { active } = usePremiumMode();
   const isPremium = plan.name === "Premium";
 
   function handlePurchaseTap() {
     if (!isPremium || !window.matchMedia("(max-width: 767px)").matches) return;
-    setPurchaseTaps((current) => {
-      const next = nextPremiumTapCount(current);
-      if (shouldActivatePremiumFromTaps(next)) {
-        activatePremiumMode("mobile");
-        return 0;
-      }
-      return next;
-    });
+    const next = nextPremiumTapCount(purchaseTaps);
+    if (shouldActivatePremiumFromTaps(next)) {
+      setPurchaseTaps(0);
+      activatePremiumMode("mobile");
+      return;
+    }
+    setPurchaseTaps(next);
   }
 
   return (

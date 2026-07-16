@@ -57,6 +57,7 @@ export type AnalysisSettings = {
   riskLevel: RiskLevel;
   confidence: NumericValue;
   riskNote: string;
+  featuredType?: FeaturedType;
 };
 
 export type AnalysisNotes = {

@@ -1,0 +1,236 @@
+/* Ładowane po globals.css, aby korekty responsywne miały pierwszeństwo. */
+.football-tab-list {
+  padding-bottom: 14px;
+  scrollbar-color: rgba(142, 234, 255, .6) rgba(255, 255, 255, .07);
+  scrollbar-width: thin;
+}
+
+.football-tab-list::-webkit-scrollbar { display: block; height: 7px; }
+.football-tab-list::-webkit-scrollbar-track { border-radius: 999px; background: rgba(255, 255, 255, .07); }
+.football-tab-list::-webkit-scrollbar-thumb { border-radius: 999px; background: linear-gradient(90deg, rgba(142, 234, 255, .82), rgba(245, 200, 91, .76)); }
+
+.home-featured-teams > div,
+.home-today-teams > div,
+.match-card-teams > div,
+.studio-card-teams > div,
+.report-team-identity > div { min-width: 0; }
+
+.home-featured-teams strong,
+.home-today-teams strong,
+.match-card-teams h3,
+.studio-card-teams strong,
+.report-team-identity h1 {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+  hyphens: none;
+}
+
+.home-league-line strong,
+.home-today-card-head span,
+.report-league-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-featured-card { min-height: 0; }
+.home-featured-metrics div { min-height: 112px; }
+.home-section { content-visibility: auto; contain-intrinsic-size: auto 720px; }
+
+@keyframes mobilePolishReveal {
+  from { opacity: .25; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .home-hero-backdrop {
+    background-image: radial-gradient(circle at 60% 30%, rgba(32, 217, 255, .14), transparent 54%), url('/branding/analityq-mark-compact-clean.png');
+    background-position: center, 88% 16%;
+    background-repeat: no-repeat;
+    background-size: cover, 170px auto;
+    opacity: .4;
+  }
+
+  .home-featured-pitch {
+    background-image: linear-gradient(rgba(2, 7, 19, .58), rgba(2, 7, 19, .48)), url('/branding/analityq-mark-compact-clean.png');
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover, 118px auto;
+  }
+
+  .home-featured-card { min-height: 0; animation: mobilePolishReveal 280ms cubic-bezier(.2, .8, .2, 1) both; }
+  .home-featured-card::before,
+  .signal-card::after,
+  .api-image-loading { animation: none !important; }
+  .home-featured-metrics div { min-height: 104px; animation-duration: 240ms; }
+  .home-featured-link { position: relative; bottom: auto; backdrop-filter: none; }
+  .home-today-card,
+  .match-card { transform-style: flat; animation: mobilePolishReveal 240ms ease both; }
+  .home-today-card:hover,
+  .match-card:hover,
+  .home-today-card:active,
+  .match-card:active { transform: none; }
+  .tactical-player { animation: none; }
+  .report-team-identity { gap: 8px; }
+  .report-team-identity h1 { font-size: clamp(.82rem, 4vw, 1.08rem); }
+  .home-featured-teams > div { width: calc(50% - 18px); }
+  .home-featured-teams strong { font-size: clamp(.72rem, 3.2vw, .84rem); }
+  .home-today-teams strong { font-size: .78rem; }
+  .match-card .match-card-teams h3 { font-size: .76rem; line-height: 1.2; }
+  .football-tab-list { scroll-behavior: smooth; }
+  .football-tab-list button { min-height: 44px; }
+  .football-tab-panel { border-radius: 18px; padding: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-featured-card,
+  .home-today-card,
+  .match-card { animation: none !important; }
+}
+
+.tactical-selection-list {
+  border-block: 1px solid rgba(142, 234, 255, 0.17);
+  padding: 16px;
+}
+
+.tactical-selection-list > p {
+  margin-bottom: 12px;
+  color: rgb(148 163 184);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.tactical-selection-list > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tactical-selection-list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 8px;
+  color: white;
+  text-align: left;
+}
+
+.tactical-selection-list button > span { min-width: 0; }
+
+.tactical-selection-list button strong,
+.tactical-selection-list button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tactical-selection-list button strong { font-size: 0.72rem; }
+.tactical-selection-list button small,
+.tactical-selection-list button em { color: rgb(148 163 184); font-size: 0.6rem; font-style: normal; }
+
+@media (max-width: 640px) {
+  .tactical-selection-list > div { grid-template-columns: 1fr; }
+}
+
+.home-featured-metrics > div {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+}
+
+.home-featured-metrics .football-icon {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(142, 234, 255, 0.2);
+  border-radius: 9px;
+  background: rgba(142, 234, 255, 0.07);
+}
+
+.home-featured-metrics span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-market-shell {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 14px;
+}
+
+.model-market-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.model-market-card {
+  min-width: 0;
+  border: 1px solid rgba(142, 234, 255, 0.1);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+  padding: 13px;
+}
+
+.model-market-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.model-market-card h3 {
+  min-width: 0;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.model-market-card .badge { flex: 0 0 auto; font-size: 0.57rem; }
+
+.model-market-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.model-market-values > div {
+  min-width: 0;
+  border-radius: 11px;
+  background: rgba(2, 7, 19, 0.5);
+  padding: 9px;
+}
+
+.model-market-values span,
+.model-market-values strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-market-values span { color: rgb(148 163 184); font-size: 0.61rem; }
+.model-market-values strong { margin-top: 4px; color: white; font-size: 1rem; font-weight: 950; }
+.model-market-card > p { margin-top: 10px; color: rgb(148 163 184); font-size: 0.65rem; line-height: 1.45; }
+.model-market-note { margin: 13px 2px 0; color: rgb(100 116 139); font-size: 0.68rem; line-height: 1.5; }
+
+@media (max-width: 767px) {
+  .home-featured-teams > div { width: 100%; }
+  .home-featured-teams strong { max-width: 100%; font-size: 0.72rem; }
+  .home-featured-teams .api-image-shell,
+  .home-featured-teams .api-image-fallback { width: 72px !important; height: 72px !important; padding: 5px; }
+  .home-featured-metrics { gap: 8px; }
+  .home-featured-metrics > div { min-height: 100px; padding: 11px; }
+  .home-featured-metrics strong { font-size: clamp(1.55rem, 8vw, 2rem); }
+  .home-featured-metrics span:last-child { font-size: 0.59rem; }
+  .model-market-grid { grid-template-columns: 1fr; }
+  .model-market-shell { border-radius: 17px; padding: 10px; }
+  .model-market-card { padding: 12px; }
+}

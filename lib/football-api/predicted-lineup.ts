@@ -1,10 +1,22 @@
 import type {
+  HistoricalStarterPlayer,
   HistoricalTeamLineup,
   MatchInjuriesData,
   MatchLineupPlayer,
   MatchPlayerInsights,
   PlayerInsight,
 } from "./types";
+
+type LegacyHistoricalStarterPlayer = Partial<HistoricalStarterPlayer> & {
+  playerId?: number;
+  playerName?: string;
+};
+
+type LegacyHistoricalTeamLineup = Omit<HistoricalTeamLineup, "players" | "sampleSize"> & {
+  sampleSize?: number;
+  matchesCount?: number;
+  players: LegacyHistoricalStarterPlayer[];
+};
 
 export type PredictedLineupPlayer = MatchLineupPlayer & {
   id: number;
@@ -30,6 +42,47 @@ const unavailableReason = "Brak wystarczających danych do wiarygodnego przewidy
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function nonNegativeNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+export function normalizeHistoricalTeamLineup(historical: HistoricalTeamLineup): HistoricalTeamLineup {
+  const legacy = historical as unknown as LegacyHistoricalTeamLineup;
+  const teamSample = nonNegativeNumber(legacy.sampleSize || legacy.matchesCount);
+  const fallbackSample = Math.max(
+    teamSample,
+    ...legacy.players.map((player) => nonNegativeNumber(player.sampleSize)),
+  );
+  const players = legacy.players.flatMap((player): HistoricalStarterPlayer[] => {
+    const id = nonNegativeNumber(player.id || player.playerId);
+    const name = String(player.name || player.playerName || "").trim();
+    if (!id || !name) return [];
+    return [{
+      id,
+      name,
+      number: typeof player.number === "number" ? player.number : null,
+      position: player.position || null,
+      grid: player.grid || null,
+      playerPhoto: player.playerPhoto || null,
+      playerNationality: player.playerNationality || null,
+      countryCode: player.countryCode || null,
+      captain: Boolean(player.captain),
+      starts: nonNegativeNumber(player.starts),
+      sampleSize: nonNegativeNumber(player.sampleSize) || fallbackSample,
+    }];
+  });
+
+  return {
+    teamId: historical.teamId,
+    teamName: historical.teamName,
+    teamLogo: historical.teamLogo || null,
+    formation: historical.formation || null,
+    sampleSize: fallbackSample,
+    players,
+  };
 }
 
 function positionGroup(position: string | null) {
@@ -92,32 +145,33 @@ export function predictTeamLineup(
   injuries: MatchInjuriesData,
   insights: MatchPlayerInsights,
 ): PredictedTeamLineup {
+  const normalized = normalizeHistoricalTeamLineup(historical);
   const base = {
-    teamId: historical.teamId,
-    teamName: historical.teamName,
-    teamLogo: historical.teamLogo,
-    formation: historical.formation,
-    sampleSize: historical.sampleSize,
+    teamId: normalized.teamId,
+    teamName: normalized.teamName,
+    teamLogo: normalized.teamLogo,
+    formation: normalized.formation,
+    sampleSize: normalized.sampleSize,
   };
-  if (historical.sampleSize < 3 || !historical.formation) {
+  if (normalized.sampleSize < 3) {
     return { ...base, available: false, reason: unavailableReason, confidence: null, players: [] };
   }
 
   const missingIds = new Set(
     injuries.missing
-      .filter((injury) => injury.teamId === historical.teamId && injury.playerId !== null)
+      .filter((injury) => injury.teamId === normalized.teamId && injury.playerId !== null)
       .map((injury) => injury.playerId as number),
   );
   const questionableIds = new Set(
     injuries.questionable
-      .filter((injury) => injury.teamId === historical.teamId && injury.playerId !== null)
+      .filter((injury) => injury.teamId === normalized.teamId && injury.playerId !== null)
       .map((injury) => injury.playerId as number),
   );
   const insightMap = new Map(
     [...insights.home, ...insights.away].map((player) => [player.playerId, player]),
   );
 
-  const candidates: PredictedLineupPlayer[] = historical.players
+  const candidates: PredictedLineupPlayer[] = normalized.players
     .filter((player) => !missingIds.has(player.id))
     .map((player) => {
       const questionable = questionableIds.has(player.id);
@@ -139,7 +193,9 @@ export function predictTeamLineup(
     })
     .sort((a, b) => b.confidence - a.confidence || b.starts - a.starts || a.name.localeCompare(b.name));
 
-  const assigned = assignFormation(candidates, historical.formation);
+  const assigned = normalized.formation
+    ? assignFormation(candidates, normalized.formation)
+    : candidates.slice(0, 11).map((player) => ({ ...player, grid: null }));
   if (!assigned || assigned.length !== 11) {
     return { ...base, available: false, reason: unavailableReason, confidence: null, players: [] };
   }

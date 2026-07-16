@@ -98,9 +98,16 @@ export async function deleteAdminAnalysis(id: string) {
 }
 
 export async function setAdminPublicationStatus(id: string, status: PublicationStatus) {
+  const existing = await fetchExistingAnalyses();
+  const current = existing.find((analysis) => analysis.id === id);
+  if (!current) repositoryError("Nie znaleziono analizy.");
   const update = status === "published"
     ? { publication_status: status, updated_at: currentIso() }
-    : { publication_status: status, featured_type: null, updated_at: currentIso() };
+    : {
+        publication_status: status,
+        settings: { ...current.settings, featuredType: null },
+        updated_at: currentIso(),
+      };
   const { data, error } = await getAdminSupabase()
     .from("analyses")
     .update(update)
@@ -114,44 +121,31 @@ export async function setAdminPublicationStatus(id: string, status: PublicationS
 
 export async function setAdminFeaturedType(id: string, featuredType: FeaturedType) {
   const supabase = getAdminSupabase();
-
-  if (featuredType === null) {
-    const { data, error } = await supabase
-      .from("analyses")
-      .update({ featured_type: null, updated_at: currentIso() })
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error || !data) repositoryError("Nie udało się usunąć oznaczenia meczu dnia.");
-    return rowToAnalysis(data as AnalysisRow);
-  }
-
-  const { data: target, error: targetError } = await supabase
-    .from("analyses")
-    .select("id, publication_status")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (targetError || !target) repositoryError("Nie znaleziono analizy.");
-  if (target.publication_status !== "published") {
+  const existing = await fetchExistingAnalyses();
+  const target = existing.find((analysis) => analysis.id === id);
+  if (!target) repositoryError("Nie znaleziono analizy.");
+  if (featuredType === "match_of_the_day" && target.publicationStatus !== "published") {
     repositoryError("Meczem dnia może zostać wyłącznie opublikowana analiza.");
   }
 
-  const { error: clearError } = await supabase
-    .from("analyses")
-    .update({ featured_type: null, updated_at: currentIso() })
-    .eq("featured_type", "match_of_the_day");
-  if (clearError) repositoryError("Nie udało się zmienić meczu dnia.");
+  for (const current of existing.filter((analysis) => analysis.id !== id && analysis.featuredType === "match_of_the_day")) {
+    const { error } = await supabase
+      .from("analyses")
+      .update({ settings: { ...current.settings, featuredType: null }, updated_at: currentIso() })
+      .eq("id", current.id);
+    if (error) repositoryError("Nie udało się zmienić meczu dnia.");
+  }
 
   const { data, error } = await supabase
     .from("analyses")
-    .update({ featured_type: "match_of_the_day", updated_at: currentIso() })
+    .update({ settings: { ...target.settings, featuredType }, updated_at: currentIso() })
     .eq("id", id)
     .select("*")
     .single();
 
-  if (error || !data) repositoryError("Nie udało się ustawić meczu dnia.");
+  if (error || !data) repositoryError(featuredType
+    ? "Nie udało się ustawić meczu dnia."
+    : "Nie udało się usunąć oznaczenia meczu dnia.");
   return rowToAnalysis(data as AnalysisRow);
 }
 

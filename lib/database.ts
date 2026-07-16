@@ -1,8 +1,8 @@
 "use client";
 
-import { rowToAnalysis, type AnalysisRow } from "./analysis-persistence";
 import { studioSessionExpiredEvent } from "./studio-auth";
-import { supabase, supabaseMissingConfigMessage } from "./supabase";
+import { supabaseMissingConfigMessage } from "./supabase";
+import type { PublicAnalysisSummary } from "./public-analysis";
 import type { FeaturedType, MatchAnalysisRecord, PublicationStatus } from "./types";
 
 export const databaseChangeEvent = "analityq-database";
@@ -36,11 +36,6 @@ export class StudioSessionExpiredError extends Error {
     super("Sesja wygasła. Zaloguj się ponownie.");
     this.name = "StudioSessionExpiredError";
   }
-}
-
-function ensureSupabase() {
-  if (!supabase) throw new SupabaseConfigError();
-  return supabase;
 }
 
 function notifyDatabaseChange() {
@@ -85,6 +80,23 @@ async function studioRequest<T>(path: string, init: RequestInit = {}) {
   return payload.data;
 }
 
+async function publicRequest<T>(path: string) {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  let payload: ApiEnvelope<T> = {};
+  try {
+    payload = (await response.json()) as ApiEnvelope<T>;
+  } catch {
+    // Publiczny interfejs pokazuje jednolity komunikat niezależnie od odpowiedzi serwera.
+  }
+  if (!response.ok || payload.data === undefined) {
+    throw new SupabaseDatabaseError(payload.error?.message || databaseFetchErrorMessage);
+  }
+  return payload.data;
+}
+
 export function getPublicDatabaseErrorMessage(error: unknown) {
   if (error instanceof SupabaseConfigError) return supabaseMissingConfigMessage;
   return databaseFetchErrorMessage;
@@ -101,27 +113,13 @@ export async function getAllAnalyses() {
 }
 
 export async function getPublishedAnalyses() {
-  const { data, error } = await ensureSupabase()
-    .from("analyses")
-    .select("*")
-    .eq("publication_status", "published")
-    .order("slot_number", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  if (error) throw new SupabaseDatabaseError(databaseFetchErrorMessage);
-  return ((data || []) as AnalysisRow[]).map(rowToAnalysis);
+  return publicRequest<PublicAnalysisSummary[]>("/api/public/analyses");
 }
 
 export async function getAnalysisBySlug(slug: string) {
-  const { data, error } = await ensureSupabase()
-    .from("analyses")
-    .select("*")
-    .eq("slug", slug)
-    .eq("publication_status", "published")
-    .maybeSingle();
-
-  if (error) throw new SupabaseDatabaseError(databaseFetchErrorMessage);
-  return data ? rowToAnalysis(data as AnalysisRow) : null;
+  return publicRequest<MatchAnalysisRecord | null>(
+    `/api/public/analyses/${encodeURIComponent(slug)}`,
+  );
 }
 
 export async function createAnalysis(analysis: MatchAnalysisRecord) {

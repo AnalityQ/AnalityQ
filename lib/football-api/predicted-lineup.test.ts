@@ -44,6 +44,29 @@ describe("przewidywany skład", () => {
     ]);
   });
 
+  it("obsługuje historyczne snapshoty bez formacji i pól zespołowej próby", () => {
+    const legacy = team() as HistoricalTeamLineup & {
+      sampleSize?: number;
+      formation?: string | null;
+      players: Array<{ playerId: number; playerName: string; starts: number; sampleSize: number }>;
+    };
+    legacy.sampleSize = undefined;
+    legacy.formation = null;
+    legacy.players = team().players.map((player) => ({
+      playerId: player.id,
+      playerName: player.name,
+      starts: player.starts,
+      sampleSize: player.sampleSize,
+    }));
+
+    const result = predictTeamLineup(legacy as HistoricalTeamLineup, injuries, insights);
+    expect(result.available).toBe(true);
+    expect(result.sampleSize).toBe(5);
+    expect(result.formation).toBeNull();
+    expect(result.players).toHaveLength(11);
+    expect(result.players.every((player) => player.grid === null)).toBe(true);
+  });
+
   it("nie przewiduje składu przy próbie mniejszej niż trzy mecze", () => {
     const result = predictTeamLineup(team(2), injuries, insights);
     expect(result.available).toBe(false);

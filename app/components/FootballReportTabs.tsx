@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   localizeCompetitionName,
   localizePlayerPosition,
@@ -21,6 +21,9 @@ import { CountryLabel, LeagueLogo, PersonPhoto, TeamLogo } from "./ApiImage";
 import { FootballIcon, type FootballIconName } from "./FootballIcon";
 import { PremiumLockCard } from "./PremiumLockCard";
 import { TacticalLineups } from "./TacticalLineups";
+import { contextualSnapshotContent } from "@/lib/football-api/match-context";
+import { predictTeamLineup } from "@/lib/football-api/predicted-lineup";
+import { contextualSamples, resolveVenueContext } from "@/lib/football-api/venue-context";
 
 type TabKey =
   | "summary"
@@ -43,6 +46,7 @@ type TabKey =
 const tabs: Array<{ key: TabKey; label: string; premium: boolean; icon: FootballIconName }> = [
   { key: "summary", label: "Przegląd", premium: false, icon: "signals" },
   { key: "recent", label: "Ostatnie 5", premium: false, icon: "form" },
+  { key: "lineups", label: "Składy", premium: false, icon: "lineups" },
   { key: "venue", label: "Dom / wyjazd", premium: false, icon: "h2h" },
   { key: "standings", label: "Tabela", premium: false, icon: "standings" },
   { key: "goals", label: "Gole i połowy", premium: true, icon: "goals" },
@@ -50,7 +54,6 @@ const tabs: Array<{ key: TabKey; label: string; premium: boolean; icon: Football
   { key: "cards", label: "Kartki i faule", premium: true, icon: "cards" },
   { key: "shots", label: "Strzały", premium: true, icon: "shots" },
   { key: "h2h", label: "H2H", premium: true, icon: "h2h" },
-  { key: "lineups", label: "Składy", premium: false, icon: "lineups" },
   { key: "players", label: "Zawodnicy", premium: true, icon: "players" },
   { key: "absences", label: "Absencje", premium: false, icon: "absences" },
   { key: "signals", label: "Sygnały", premium: false, icon: "signals" },
@@ -186,7 +189,7 @@ function RecentTeam({ data, place }: { data: TeamRecentData; place: string }) {
       <div className="football-team-title"><TeamLogo src={data.team.logo} alt={teamName} size={48} /><div><h3>{teamName}</h3><p>{data.summary.sampleSize} spotkań · {place}</p></div></div>
       <SummaryGrid summary={data.summary} place={place} />
       <div className="recent-match-list">
-        {data.matches.map((match) => <MatchCard key={match.fixtureId} match={match} teamName={teamName} />)}
+        {data.matches.map((match, index) => <MatchCard key={`${match.fixtureId}-${match.date}-${index}`} match={match} teamName={teamName} />)}
       </div>
       {!data.matches.length && <SectionMessage>Brak zakończonych meczów zespołu {teamName} przed analizowanym spotkaniem.</SectionMessage>}
     </section>
@@ -201,24 +204,30 @@ function ManualOverride({ title, text }: { title: string; text?: string }) {
 function SummaryTab({ snapshot, summary }: { snapshot: FootballAnalysisSnapshot; summary: string }) {
   const homeName = localizeTeamName(snapshot.fixture.homeTeam.name);
   const awayName = localizeTeamName(snapshot.fixture.awayTeam.name);
+  const samples = contextualSamples(snapshot);
+  const context = resolveVenueContext(snapshot.fixture);
+  const contextualSignals = contextualSnapshotContent(snapshot).signals;
   return (
     <div className="space-y-5">
       <section className="football-narrative"><p className="eyebrow">Raport dla tego meczu</p><p>{publicMessage(summary || snapshot.automaticSummary, "Raport zawiera zbyt mało danych, aby utworzyć liczbowe podsumowanie bez uogólnień.")}</p></section>
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="football-panel"><h3>Forma w miejscu meczu</h3><Pair label="Punkty w próbce" home={snapshot.venueSplits.homeTeamAtHome.summary.points} away={snapshot.venueSplits.awayTeamAway.summary.points} homeName={homeName} awayName={awayName} /><Pair label="Średnie gole" home={snapshot.venueSplits.homeTeamAtHome.summary.averages.goalsFor} away={snapshot.venueSplits.awayTeamAway.summary.averages.goalsFor} homeName={homeName} awayName={awayName} /><Pair label="Średnie strzały" home={snapshot.venueSplits.homeTeamAtHome.summary.averages.shotsFor} away={snapshot.venueSplits.awayTeamAway.summary.averages.shotsFor} homeName={homeName} awayName={awayName} /></section>
-        <section className="football-panel"><h3>Najważniejsze sygnały</h3><div className="signal-list">{snapshot.signals.slice(0, 4).map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.strength === "strong" ? "Silny" : signal.strength === "medium" ? "Średni" : "Słaby"}</span><small>{signal.confidence}% pewności</small></div><h4>{localizePublicText(signal.title)}</h4><p>{localizePublicText(signal.evidence)}</p><small>{localizePublicText(signal.coverage)}</small></article>)}</div>{!snapshot.signals.length && <SectionMessage>Brakuje wspólnego zestawu liczb obu drużyn wymaganego do wygenerowania konkretnego sygnału.</SectionMessage>}</section>
+        <section className="football-panel"><h3>{context.mode === "neutral" ? "Forma ogólna · teren neutralny" : "Forma w miejscu meczu"}</h3><Pair label="Punkty w próbce" home={samples.home.summary.points} away={samples.away.summary.points} homeName={homeName} awayName={awayName} /><Pair label="Średnie gole" home={samples.home.summary.averages.goalsFor} away={samples.away.summary.averages.goalsFor} homeName={homeName} awayName={awayName} /><Pair label="Średnie strzały" home={samples.home.summary.averages.shotsFor} away={samples.away.summary.averages.shotsFor} homeName={homeName} awayName={awayName} /></section>
+        <section className="football-panel"><h3>Najważniejsze sygnały</h3><div className="signal-list">{contextualSignals.slice(0, 4).map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.strength === "strong" ? "Silny" : signal.strength === "medium" ? "Średni" : "Słaby"}</span><small>{signal.confidence}% pewności</small></div><h4>{localizePublicText(signal.title)}</h4><p>{localizePublicText(signal.evidence)}</p><small>{localizePublicText(signal.coverage)}</small></article>)}</div>{!contextualSignals.length && <SectionMessage>Brakuje wspólnego zestawu liczb obu drużyn wymaganego do wygenerowania konkretnego sygnału.</SectionMessage>}</section>
       </div>
     </div>
   );
 }
 
 function VenueTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
-  const home = snapshot.venueSplits.homeTeamAtHome;
-  const away = snapshot.venueSplits.awayTeamAway;
+  const context = resolveVenueContext(snapshot.fixture);
+  const samples = contextualSamples(snapshot);
+  const home = samples.home;
+  const away = samples.away;
   return (
     <div className="space-y-5">
+      {context.mode === "neutral" && <SectionMessage>{context.reason} Zamiast podziału dom/wyjazd pokazujemy ostatnią formę ogólną obu drużyn.</SectionMessage>}
       {(home.summary.sampleSize < 3 || away.summary.sampleSize < 3) && <SectionMessage>Ostrzeżenie: co najmniej jedna próbka dom/wyjazd ma mniej niż 3 mecze, więc średnie są podatne na pojedynczy nietypowy wynik.</SectionMessage>}
-      <div className="grid gap-4 lg:grid-cols-2"><RecentTeam data={home} place="u siebie" /><RecentTeam data={away} place="na wyjeździe" /></div>
+      <div className="grid gap-4 lg:grid-cols-2"><RecentTeam data={home} place={samples.homePlace} /><RecentTeam data={away} place={samples.awayPlace} /></div>
       <section className="football-panel"><h3>Atak a liczby dopuszczane przez przeciwnika</h3><Pair label="Gole: atak / defensywa rywala" home={home.summary.averages.goalsFor} away={away.summary.averages.goalsAgainst} homeName={localizeTeamName(snapshot.fixture.homeTeam.name)} awayName={localizeTeamName(snapshot.fixture.awayTeam.name)} /><Pair label="Strzały: atak / defensywa rywala" home={home.summary.averages.shotsFor} away={away.summary.averages.shotsAgainst} homeName={localizeTeamName(snapshot.fixture.homeTeam.name)} awayName={localizeTeamName(snapshot.fixture.awayTeam.name)} /><Pair label="Rożne: wywalczone / oddane" home={home.summary.averages.cornersFor} away={away.summary.averages.cornersAgainst} homeName={localizeTeamName(snapshot.fixture.homeTeam.name)} awayName={localizeTeamName(snapshot.fixture.awayTeam.name)} /></section>
     </div>
   );
@@ -243,8 +252,9 @@ function StandingsTab({ data }: { data: MatchStandingsData | null }) {
 }
 
 function MetricsTab({ snapshot, kind, override }: { snapshot: FootballAnalysisSnapshot; kind: "goals" | "corners" | "cards" | "shots"; override?: string }) {
-  const home = snapshot.venueSplits.homeTeamAtHome;
-  const away = snapshot.venueSplits.awayTeamAway;
+  const samples = contextualSamples(snapshot);
+  const home = samples.home;
+  const away = samples.away;
   const h = home.summary.averages;
   const a = away.summary.averages;
   const title = kind === "goals" ? "Gole i połowy" : kind === "corners" ? "Rzuty rożne" : kind === "cards" ? "Kartki i faule" : "Strzały";
@@ -263,7 +273,7 @@ function MetricsTab({ snapshot, kind, override }: { snapshot: FootballAnalysisSn
   return (
     <div className="space-y-5">
       <ManualOverride title={title} text={override} />
-      <section className="football-panel"><h3>{title} · dom kontra wyjazd</h3>{rows.map(([label, homeValue, awayValue]) => <Pair key={label} label={label} home={homeValue} away={awayValue} homeName={homeName} awayName={awayName} />)}</section>
+      <section className="football-panel"><h3>{title} · {resolveVenueContext(snapshot.fixture).mode === "neutral" ? "forma ogólna na neutralnym terenie" : "dom kontra wyjazd"}</h3>{rows.map(([label, homeValue, awayValue]) => <Pair key={label} label={label} home={homeValue} away={awayValue} homeName={homeName} awayName={awayName} />)}</section>
       {kind === "corners" && <div className="football-summary-grid"><Stat label={`${homeName} · ponad 8,5`} value={`${home.summary.cornersOver85}/${home.summary.sampleSize}`} note="łączna liczba rożnych" /><Stat label={`${homeName} · ponad 9,5`} value={`${home.summary.cornersOver95}/${home.summary.sampleSize}`} /><Stat label={`${awayName} · ponad 8,5`} value={`${away.summary.cornersOver85}/${away.summary.sampleSize}`} /><Stat label={`${awayName} · ponad 10,5`} value={`${away.summary.cornersOver105}/${away.summary.sampleSize}`} /></div>}
       {kind === "goals" && <div className="football-summary-grid"><Stat label={`${homeName} · prowadzenie po pierwszym golu`} value={`${home.summary.scoredFirst}/${home.summary.sampleSize}`} /><Stat label={`${homeName} · stracony pierwszy gol`} value={`${home.summary.concededFirst}/${home.summary.sampleSize}`} /><Stat label={`${awayName} · zdobyty pierwszy gol`} value={`${away.summary.scoredFirst}/${away.summary.sampleSize}`} /><Stat label={`${awayName} · stracony pierwszy gol`} value={`${away.summary.concededFirst}/${away.summary.sampleSize}`} /></div>}
       {additional.length > 0 && <section className="football-panel"><h3>Pozostałe statystyki</h3><p>Dla części spotkań dostępne są dodatkowe rodzaje danych:</p><div className="football-summary-grid">{additional.slice(0, 12).map((stat, index) => <Stat key={`${stat.key}-${index}`} label={additionalStatisticLabel(stat.key, stat.label)} value={stat.value === null ? String(stat.rawValue ?? "—") : value(stat.value)} note="wartość z pojedynczego meczu" />)}</div></section>}
@@ -274,7 +284,7 @@ function MetricsTab({ snapshot, kind, override }: { snapshot: FootballAnalysisSn
 function H2HTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
   const h2h = snapshot.h2h;
   if (!h2h?.matches.length) return <><ManualOverride title="H2H" text={override} /><SectionMessage>{publicMessage(h2h?.reason, "Brak bezpośrednich spotkań tych drużyn.")}</SectionMessage></>;
-  return <div className="space-y-5"><ManualOverride title="H2H" text={override} /><div className="football-summary-grid"><Stat label={`Wygrane ${teamGenitive(snapshot.fixture.homeTeam.name)}`} value={h2h.homeWins} note={`${h2h.matches.length} meczów`} /><Stat label="Remisy" value={h2h.draws} /><Stat label={`Wygrane ${teamGenitive(snapshot.fixture.awayTeam.name)}`} value={h2h.awayWins} /><Stat label="Średnia goli" value={value(h2h.averageGoals)} /><Stat label="BTTS" value={`${h2h.bttsCount}/${h2h.matches.length}`} /><Stat label="Powyżej 2,5" value={`${h2h.over25Count}/${h2h.matches.length}`} /></div>{h2h.olderThanTwoSeasons > 0 && <SectionMessage>{h2h.olderThanTwoSeasons} z tych spotkań pochodzi sprzed ponad dwóch sezonów i powinno mieć niższą wagę niż aktualna forma.</SectionMessage>}<div className="recent-match-list h2h-timeline">{h2h.matches.map((match) => { const homeName = localizeTeamName(match.homeTeam.name); const awayName = localizeTeamName(match.awayTeam.name); return <article key={match.fixtureId} className="recent-match-card"><p>{date(match.date)}</p><div className="recent-score-line"><TeamLogo src={match.homeTeam.logo} alt={homeName} size={30} /><strong>{homeName} {value(match.homeGoals, "", 0)}:{value(match.awayGoals, "", 0)} {awayName}</strong><TeamLogo src={match.awayTeam.logo} alt={awayName} size={30} /></div><div className="recent-match-stats"><span>Do przerwy <b>{value(match.halftimeHomeGoals, "", 0)}:{value(match.halftimeAwayGoals, "", 0)}</b></span><span>BTTS <b>{match.btts === null ? "—" : match.btts ? "tak" : "nie"}</b></span><span>Powyżej 2,5 <b>{match.over25 === null ? "—" : match.over25 ? "tak" : "nie"}</b></span><span>Rożne <b>{value(match.totalCorners, "", 0)}</b></span><span>Kartki <b>{value(match.totalCards, "", 0)}</b></span><span>Strzały <b>{value(match.totalShots, "", 0)}</b></span></div></article>; })}</div></div>;
+  return <div className="space-y-5"><ManualOverride title="H2H" text={override} /><div className="football-summary-grid"><Stat label={`Wygrane ${teamGenitive(snapshot.fixture.homeTeam.name)}`} value={h2h.homeWins} note={`${h2h.matches.length} meczów`} /><Stat label="Remisy" value={h2h.draws} /><Stat label={`Wygrane ${teamGenitive(snapshot.fixture.awayTeam.name)}`} value={h2h.awayWins} /><Stat label="Średnia goli" value={value(h2h.averageGoals)} /><Stat label="BTTS" value={`${h2h.bttsCount}/${h2h.matches.length}`} /><Stat label="Powyżej 2,5" value={`${h2h.over25Count}/${h2h.matches.length}`} /></div>{h2h.olderThanTwoSeasons > 0 && <SectionMessage>{h2h.olderThanTwoSeasons} z tych spotkań pochodzi sprzed ponad dwóch sezonów i powinno mieć niższą wagę niż aktualna forma.</SectionMessage>}<div className="recent-match-list h2h-timeline">{h2h.matches.map((match, index) => { const homeName = localizeTeamName(match.homeTeam.name); const awayName = localizeTeamName(match.awayTeam.name); return <article key={`${match.fixtureId}-${match.date}-${index}`} className="recent-match-card"><p>{date(match.date)}</p><div className="recent-score-line"><TeamLogo src={match.homeTeam.logo} alt={homeName} size={30} /><strong>{homeName} {value(match.homeGoals, "", 0)}:{value(match.awayGoals, "", 0)} {awayName}</strong><TeamLogo src={match.awayTeam.logo} alt={awayName} size={30} /></div><div className="recent-match-stats"><span>Do przerwy <b>{value(match.halftimeHomeGoals, "", 0)}:{value(match.halftimeAwayGoals, "", 0)}</b></span><span>BTTS <b>{match.btts === null ? "—" : match.btts ? "tak" : "nie"}</b></span><span>Powyżej 2,5 <b>{match.over25 === null ? "—" : match.over25 ? "tak" : "nie"}</b></span><span>Rożne <b>{value(match.totalCorners, "", 0)}</b></span><span>Kartki <b>{value(match.totalCards, "", 0)}</b></span><span>Strzały <b>{value(match.totalShots, "", 0)}</b></span></div></article>; })}</div></div>;
 }
 
 function LineupsTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
@@ -292,11 +302,13 @@ function PlayersTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
 }
 
 function SignalsTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
-  return <div className="space-y-5"><ManualOverride title="Sygnały" text={override} /><section className="football-panel"><h3>Kluczowe sygnały</h3><div className="signal-list">{snapshot.signals.map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.category}</span><small>{signal.confidence}%</small></div><h4>{localizePublicText(signal.title)}</h4><p>{localizePublicText(signal.evidence)}</p><p>{localizePublicText(signal.interpretation)}</p><small>{localizePublicText(signal.coverage)}</small></article>)}</div>{!snapshot.signals.length && <SectionMessage>Nie wygenerowano sygnału, ponieważ wymagane dane obu drużyn nie są jednocześnie dostępne.</SectionMessage>}</section></div>;
+  const signals = contextualSnapshotContent(snapshot).signals;
+  return <div className="space-y-5"><ManualOverride title="Sygnały" text={override} /><section className="football-panel"><h3>Kluczowe sygnały</h3><div className="signal-list">{signals.map((signal) => <article key={signal.id} className={`signal-card signal-${signal.strength}`}><div><span>{signal.category}</span><small>{signal.confidence}%</small></div><h4>{localizePublicText(signal.title)}</h4><p>{localizePublicText(signal.evidence)}</p><p>{localizePublicText(signal.interpretation)}</p><small>{localizePublicText(signal.coverage)}</small></article>)}</div>{!signals.length && <SectionMessage>Nie wygenerowano sygnału, ponieważ wymagane dane obu drużyn nie są jednocześnie dostępne.</SectionMessage>}</section></div>;
 }
 
 function RisksTab({ snapshot, override }: { snapshot: FootballAnalysisSnapshot; override?: string }) {
-  return <div className="space-y-5"><ManualOverride title="Zaawansowane ryzyko" text={override} /><section className="football-panel"><h3>Ryzyka tej analizy</h3><div className="risk-list">{snapshot.risks.map((risk) => <article key={risk.id} className={`match-risk risk-${risk.level}`}><span>{risk.level === "high" ? "Wysokie" : risk.level === "medium" ? "Średnie" : "Niskie"}</span><h4>{localizePublicText(risk.title)}</h4><p>{localizePublicText(risk.evidence)}</p><small>{localizePublicText(risk.impact)}</small></article>)}</div>{!snapshot.risks.length && <SectionMessage>W dostępnych danych nie wykryto konkretnego ryzyka liczbowego; nie oznacza to braku niepewności sportowej.</SectionMessage>}</section></div>;
+  const risks = contextualSnapshotContent(snapshot).risks;
+  return <div className="space-y-5"><ManualOverride title="Zaawansowane ryzyko" text={override} /><section className="football-panel"><h3>Ryzyka tej analizy</h3><div className="risk-list">{risks.map((risk) => <article key={risk.id} className={`match-risk risk-${risk.level}`}><span>{risk.level === "high" ? "Wysokie" : risk.level === "medium" ? "Średnie" : "Niskie"}</span><h4>{localizePublicText(risk.title)}</h4><p>{localizePublicText(risk.evidence)}</p><small>{localizePublicText(risk.impact)}</small></article>)}</div>{!risks.length && <SectionMessage>W dostępnych danych nie wykryto konkretnego ryzyka liczbowego; nie oznacza to braku niepewności sportowej.</SectionMessage>}</section></div>;
 }
 
 function AbsencesTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
@@ -317,21 +329,47 @@ function QualityTab({ snapshot }: { snapshot: FootballAnalysisSnapshot }) {
 }
 
 function tabStatus(key: TabKey, snapshot: FootballAnalysisSnapshot) {
-  const mapped = key === "lineups" ? snapshot.coverage.lineups.status
-    : key === "players" ? snapshot.coverage.players.status
+  if (key === "lineups") {
+    if (snapshot.lineups.official && snapshot.lineups.teams.some((team) => team.startXI.length >= 11)) return "pełne";
+    const predictions = snapshot.lineups.historicalStarters.map((team) =>
+      predictTeamLineup(team, snapshot.injuries, snapshot.playerInsights),
+    );
+    if (predictions.length === 2 && predictions.every((prediction) => prediction.available)) return "przewidywane";
+    if (predictions.some((prediction) => prediction.available) || snapshot.lineups.historicalStarters.some((team) => team.players.length > 0)) return "częściowe";
+    return "brak danych";
+  }
+  const mapped = key === "players" ? snapshot.coverage.players.status
       : key === "absences" ? snapshot.coverage.injuries.status
         : key === "standings" ? snapshot.coverage.standings.status
           : key === "h2h" ? snapshot.coverage.h2h.status
             : key === "odds" ? snapshot.coverage.odds.status
-              : key === "recent" || key === "venue" || key === "goals" || key === "corners" || key === "cards" || key === "shots" ? snapshot.coverage.recentForm.status
+              : key === "recent" || key === "venue" || key === "goals" || key === "corners" || key === "cards" || key === "shots" ? (resolveVenueContext(snapshot.fixture).mode === "neutral" ? snapshot.coverage.recentForm.status : snapshot.coverage.venueSplits.status)
                 : snapshot.signals.length || key === "quality" || key === "summary" ? "complete" : "unavailable";
   return mapped === "complete" ? "pełne" : mapped === "partial" ? "częściowe" : "brak danych";
 }
 
 export function FootballReportTabs({ snapshot, mode, summary, premiumSections }: { snapshot: FootballAnalysisSnapshot; mode: "free" | "premium"; summary: string; premiumSections: PremiumSections }) {
   const [active, setActive] = useState<TabKey>("summary");
-  const tab = tabs.find((item) => item.key === active) || tabs[0];
+  const venueContext = resolveVenueContext(snapshot.fixture);
+  const reportTabs = tabs.map((item) => item.key === "venue"
+    ? { ...item, label: venueContext.mode === "neutral" ? "Teren neutralny" : item.label }
+    : item);
+  const tab = reportTabs.find((item) => item.key === active) || reportTabs[0];
   const locked = tab.premium && mode !== "premium";
+  useEffect(() => {
+    function syncHash() {
+      if (window.location.hash === "#sklady") setActive("lineups");
+    }
+    syncHash();
+    const syncTimer = window.setTimeout(syncHash, 0);
+    window.addEventListener("hashchange", syncHash);
+    window.addEventListener("popstate", syncHash);
+    return () => {
+      window.clearTimeout(syncTimer);
+      window.removeEventListener("hashchange", syncHash);
+      window.removeEventListener("popstate", syncHash);
+    };
+  }, []);
   let content: ReactNode;
   switch (active) {
     case "summary": content = <SummaryTab snapshot={snapshot} summary={summary} />; break;
@@ -352,7 +390,7 @@ export function FootballReportTabs({ snapshot, mode, summary, premiumSections }:
     case "quality": content = <QualityTab snapshot={snapshot} />; break;
   }
   function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
-    const lastIndex = tabs.length - 1;
+    const lastIndex = reportTabs.length - 1;
     const nextIndex = event.key === "ArrowRight" ? (index === lastIndex ? 0 : index + 1)
       : event.key === "ArrowLeft" ? (index === 0 ? lastIndex : index - 1)
         : event.key === "Home" ? 0
@@ -360,12 +398,12 @@ export function FootballReportTabs({ snapshot, mode, summary, premiumSections }:
             : null;
     if (nextIndex === null) return;
     event.preventDefault();
-    setActive(tabs[nextIndex].key);
+    setActive(reportTabs[nextIndex].key);
     event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role='tab']")[nextIndex]?.focus();
   }
   return (
-    <section className="football-report-tabs">
-      <nav className="football-tab-list" aria-label="Sekcje raportu" role="tablist">{tabs.map((item, index) => <button key={item.key} id={`report-tab-${item.key}`} type="button" role="tab" aria-selected={active === item.key} aria-controls={`report-panel-${item.key}`} tabIndex={active === item.key ? 0 : -1} className={active === item.key ? "active" : ""} onClick={() => setActive(item.key)} onKeyDown={(event) => handleTabKey(event, index)}><FootballIcon name={item.icon} size={17} /><strong>{item.label}</strong><small>{tabStatus(item.key, snapshot)}</small>{item.premium && <span aria-label="Premium">P</span>}</button>)}</nav>
+    <section id="sklady" className="football-report-tabs">
+      <nav className="football-tab-list" aria-label="Sekcje raportu" role="tablist">{reportTabs.map((item, index) => <button key={item.key} id={`report-tab-${item.key}`} type="button" role="tab" aria-selected={active === item.key} aria-controls={`report-panel-${item.key}`} tabIndex={active === item.key ? 0 : -1} className={active === item.key ? "active" : ""} onClick={() => setActive(item.key)} onKeyDown={(event) => handleTabKey(event, index)}><FootballIcon name={item.icon} size={17} /><strong>{item.label}</strong><small>{tabStatus(item.key, snapshot)}</small>{item.premium && <span aria-label="Premium">P</span>}</button>)}</nav>
       <div id={`report-panel-${active}`} className="football-tab-panel" role="tabpanel" aria-labelledby={`report-tab-${active}`} tabIndex={0}>{locked ? <PremiumLockCard title={tab.label} text="Premium wkrótce — rozszerzona sekcja nie jest jeszcze dostępna w wariancie Darmowym." /> : content}</div>
     </section>
   );

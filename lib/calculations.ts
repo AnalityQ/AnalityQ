@@ -11,6 +11,7 @@ import type {
   TeamManualStats,
   AnalysisStatCoverage,
 } from "./types";
+import { resolveAnalysisVenueContext } from "./football-api/venue-context";
 
 export const marketDefinitions: Array<{ key: MarketKey; label: string }> = [
   { key: "homeWin", label: "1" },
@@ -217,7 +218,9 @@ export function calculateModelProbabilities(analysis: MatchAnalysisRecord): Mark
       numberOrZero(away.cornersForAvg) * 0.06 -
       numberOrZero(away.goalsAgainstAvg) * 0.9;
 
-    homeStrength += 0.25;
+    if (resolveAnalysisVenueContext(analysis).mode === "home_away") {
+      homeStrength += 0.25;
+    }
     const diff = homeStrength - awayStrength;
     const homeWinBase = clamp(38 + diff * 10, 18, 70);
     const awayWinBase = clamp(34 - diff * 10, 15, 65);
